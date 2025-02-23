@@ -40,9 +40,9 @@ This repository hosts a Python Dash web application designed to visualize, downl
   - **`layout.py`**: Defines the app’s overall layout, including common elements like headers and footers.
   - **`callbacks.py`**: Houses the callback functions that control app interactivity.
   - **tabs/**: Splits the app into modular sections (tabs) for different data views:
-    - **`tab1.py`**: Handles the Gene Expression Visualization tab.
-    - **`tab2.py`**: Manages the RNA Isoform Exploration tab.
-    - **`tab3.py`**: Contains the Genotyping Data tab.
+    - **`tab1.py`**: 
+    - **`tab2.py`**: 
+    - **`tab3.py`**: 
     - Additional tabs can be added as required.
 
 - **assets/**  
