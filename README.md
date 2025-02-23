@@ -12,9 +12,9 @@ This repository hosts a Python Dash web application designed to visualize, downl
     │   ├── layout.py           # Defines the overall layout (header, footer, etc.) of the app.
     │   ├── callbacks.py        # Contains global callback functions for app interactivity.
     │   └── tabs/               # Contains individual modules for each tab in the app.
-    │       ├── tab1.py         # Tab 1: Gene Expression Visualization.
-    │       ├── tab2.py         # Tab 2: RNA Isoform Exploration.
-    │       ├── tab3.py         # Tab 3: Genotyping Data.
+    │       ├── tab1.py         # Tab 1:
+    │       ├── tab2.py         # Tab 2: 
+    │       ├── tab3.py         # Tab 3: 
     │       └── ...             # Additional tabs as needed.
     ├── assets/                 # Static assets that Dash automatically serves.
     │   ├── custom.css          # Custom CSS for styling the app.
