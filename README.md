@@ -1,4 +1,4 @@
-# My Dash App for Alzheimer's Disease Data Visualization
+# AD_RNAseq_dash_app
 
 ## Overview
 This repository hosts a Python Dash web application designed to visualize, download, and explore various datasets related to Alzheimer's disease research. The app provides interactive views for gene and RNA isoform expression data (long read RNAseq), genotyping data, technical sequencing/genotyping variables, demographics, and pathology data from post-mortem brain tissue. Its modular design—with multiple tabs for different types of data—ensures scalability and ease of maintenance.
