@@ -92,3 +92,4 @@ sql_database/
 *.raw
 !data/migrations/
 !data/migrations/**
+!data/migrations/create_database.py
