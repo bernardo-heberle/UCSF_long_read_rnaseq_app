@@ -9,7 +9,9 @@ from app.utils.ui_components import (
     create_gene_search_dropdown,
     create_matrix_dropdown,
     create_section_header,
-    create_content_card
+    create_content_card,
+    create_radio_items,
+    create_checklist
 )
 
 # Get the dropdown options
@@ -78,95 +80,90 @@ def update_search_options(search_value, selected_value):
     return results
 
 layout = dbc.Container([
-    html.H2("Expression Matrix Analysis", 
-        className="mt-3",
-        style={
-            "color": "#333333",
-            "font-weight": "300",
-            "letter-spacing": "0.5px"
-        }
-    ),
     dbc.Card([
         dbc.CardBody([
-            # First row - three columns, with search, dropdown, and log transform option
+            # First row - four columns, with search, dropdown, and visualization options
             dbc.Row([
                 dbc.Col([
-                    create_section_header("Search Gene"),
+                    create_section_header("Search Gene:"),
                     create_gene_search_dropdown()
-                ], width=4),
+                ], width=3),
                 dbc.Col([
                     create_section_header("Select a data matrix to analyze:"),
                     create_matrix_dropdown(dropdown_options, default_table)
-                ], width=4),
+                ], width=3),
                 dbc.Col([
-                    create_section_header("Data Transformation"),
+                    create_section_header("Data Transformation:"),
                     create_content_card([
-                        dbc.RadioItems(
-                            id="log-transform-option",
-                            options=[
-                                {"label": "Original Values", "value": False},
-                                {"label": "Log Transform (log10(x+1))", "value": True}
-                            ],
-                            value=False,  # Default to no transformation
-                            inline=True,
-                            style={
-                                "color": "#333333",
-                                "font-size": "0.9rem",
-                                "margin-bottom": "10px"  # Add spacing between radio buttons
-                            }
-                        ),
-                        html.Hr(style={"margin": "10px 0"}),  # Add a separator
-                        dbc.RadioItems(
-                            id="plot-style-option",
-                            options=[
-                                {"label": "Box Plot", "value": "boxplot"},
-                                {"label": "Violin Plot", "value": "violin"}
-                            ],
-                            value="boxplot",  # Default to boxplot
-                            inline=True,
-                            style={
-                                "color": "#333333",
-                                "font-size": "0.9rem"
-                            }
-                        )
+                        html.Div([
+                            create_radio_items(
+                                id="log-transform-option",
+                                options=[
+                                    {"label": "Original Values", "value": False},
+                                    {"label": "Log Transform (log10(x+1))", "value": True}
+                                ],
+                                value=False,
+                                inline=True
+                            )
+                        ], className="radio-group-container")
                     ])
-                ], width=4)
-            ], className="mb-4"),
+                ], width=3),
+                dbc.Col([
+                    create_section_header("Plot Style:"),
+                    create_content_card([
+                        html.Div([
+                            create_radio_items(
+                                id="plot-style-option",
+                                options=[
+                                    {"label": "Box Plot", "value": "boxplot"},
+                                    {"label": "Violin Plot", "value": "violin"}
+                                ],
+                                value="boxplot",
+                                inline=True
+                            )
+                        ], className="radio-group-container")
+                    ])
+                ], width=3)
+            ], className="mb-4 dbc"),
 
             # Second row - one column for matrix content
             dbc.Row([
                 dbc.Col([
-                    create_section_header("Matrix Information"),
                     create_content_card(
                         dbc.Spinner(
-                            html.Div(id='matrix-content'),
+                            html.Div(
+                                id='matrix-content',
+                                style={
+                                    "height": "90hv",
+                                    "width": "100%"
+                                }
+                            ),
                             color="primary",
                             type="grow",
                             spinner_style={"width": "3rem", "height": "3rem"}
                         )
                     )
                 ], width=12)
-            ], className="mb-4"),
+            ], 
+            className="mb-4 dbc", 
+            style={"height": "90hv"}
+            ),
 
             # Third row - three columns
             dbc.Row([
                 dbc.Col([
-                    create_section_header("Plot Options"),
+                    create_section_header("Show expression separated by:"),
                     create_content_card([
                         html.Div([
-                            dbc.Checklist(
+                            create_checklist(
+                                id="metadata-checklist",
                                 options=[
                                     {"label": "Braak Stage", "value": "braak_tangle_score"},
                                     {"label": "Sex", "value": "sex"},
                                     {"label": "AD Status", "value": "ebbert_ad_status"},
                                     {"label": "APOE Genotype", "value": "apoe"}
                                 ],
-                                value=["ebbert_ad_status"],  # Set AD Status as default selection
-                                id="metadata-checklist",
-                                style={
-                                    "color": "#333333",
-                                    "font-size": "0.9rem"
-                                }
+                                value=["ebbert_ad_status"]
                             )
                         ])
                     ])
@@ -179,7 +176,7 @@ layout = dbc.Container([
                     create_section_header("Column 3-3"),
                     create_content_card("Content 3-3")
                 ], width=4),
-            ], className="mb-4"),
+            ], className="mb-4 dbc"),
 
             # Fourth row - two columns
             dbc.Row([
@@ -191,7 +188,7 @@ layout = dbc.Container([
                     create_section_header("Column 4-2"),
                     create_content_card("Content 4-2")
                 ], width=6),
-            ], className="mb-4")
+            ], className="mb-4 dbc")
         ])
     ],
     style={

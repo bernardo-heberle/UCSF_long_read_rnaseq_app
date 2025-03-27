@@ -56,4 +56,48 @@ def create_content_card(content):
             "border-radius": "6px",
             "box-shadow": "0 2px 4px rgba(0, 0, 0, 0.1)"
         }
+    )
+
+def create_radio_items(id, options, value=None, inline=True):
+    """Create a standardized radio button group with COSMO styling."""
+    return dbc.RadioItems(
+        id=id,
+        options=options,
+        value=value,
+        inline=inline,
+        style={
+            "color": "#333333",
+            "font-size": "0.9rem"
+        },
+        inputStyle={
+            "cursor": "pointer"
+        },
+        labelStyle={
+            "cursor": "pointer",
+            "margin-right": "1rem",
+            "padding": "0.25rem 0"
+        },
+        className="dbc"
+    )
+
+def create_checklist(id, options, value=None, inline=True):
+    """Create a standardized checklist with COSMO styling."""
+    return dbc.Checklist(
+        id=id,
+        options=options,
+        value=value,
+        inline=inline,
+        style={
+            "color": "#333333",
+            "font-size": "0.9rem"
+        },
+        inputStyle={
+            "cursor": "pointer"
+        },
+        labelStyle={
+            "cursor": "pointer",
+            "margin-right": "1rem",
+            "padding": "0.25rem 0"
+        },
+        className="dbc"
     ) 

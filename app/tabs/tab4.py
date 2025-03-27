@@ -6,7 +6,7 @@ import dash_bootstrap_components as dbc
 
 layout = dbc.Container([
     html.H2("This is Tab 4", 
-        className="mt-3",
+        className="mt-3 dbc",
         style={
             "color": "#333333",
             "font-weight": "300",

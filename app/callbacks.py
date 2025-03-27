@@ -11,6 +11,7 @@ from polars import col, lit
 import dash_bootstrap_components as dbc
 from app.utils.db_utils import get_gene_data_with_metadata, duck_conn, POLARS_AVAILABLE
 from app.utils.polars_utils import order_transcripts_by_expression
+from app.utils.plotly_utils import get_n_colors
 import RNApysoforms as RNApy
 
 # Callback to update the active tab when a nav link is clicked
@@ -147,54 +148,17 @@ def update_matrix_content(selected_table, selected_gene):
             except Exception as final_e:
                 raise Exception(f"All data retrieval methods failed. Last error: {str(final_e)}")
         
-        # Get column counts for display
-        col_count = len(df.columns)
-            
-        # Check if the metadata columns are present to determine if join worked
-        metadata_columns = ["diagnosis", "age", "pmi", "sex", "apoe", "braak_tangle_score", "mapping_rate", "tin_median", "rin"]
-        has_metadata = any(col in df.columns for col in metadata_columns)
-            
-        # Show metadata about the query result
-        status_messages = []
-        if not has_metadata:
-            status_messages.append(html.P(
-                "Note: Could not join with metadata table. Showing raw count data.",
-                style={"color": "#ff9800", "font-style": "italic"}
-            ))
-        
-        if row_count > max_rows:
-            status_messages.append(html.P(
-                f"Showing data for {row_count} total rows",
-                style={"color": "#4CAF50", "font-weight": "bold", "font-size": "0.9rem"}
-            ))
-            
-        if err_msg:
-            status_messages.append(html.P(
-                f"Warning: {err_msg}",
-                style={"color": "#ff9800", "font-style": "italic", "font-size": "0.8rem"}
-            ))
-        
-        # Return info and visualization container (without the table)
+        # Return only the visualization container without the information display
         return html.Div([
-            html.H4(f"Table: {selected_table}", 
-                   style={"color": "#333333", "margin-top": "1rem"}),
-            html.P(f"Gene: {gene_name} ({actual_gene_id})",
-                  style={"color": "#666666", "font-weight": "bold"}),
-            html.Div(status_messages),
-            
-            # Only keep the visualization section
-            html.H5("Visualization:", 
-                   style={"color": "#333333", "margin-top": "2rem"}),
             html.Div(id='gene-plot-container', 
                     style={
                         "background-color": "#ffffff",
-                        "padding": "15px",
+                        "padding": "10px",  # Reduced padding
                         "border-radius": "5px",
                         "border": "1px solid rgba(0, 0, 0, 0.1)",
                         "box-shadow": "0 2px 4px rgba(0, 0, 0, 0.1)",
                         "width": "100%",
-                        "height": "calc(100vh - 400px)",  # Dynamic height based on viewport
-                        "min-height": "600px"  # Minimum height to ensure visibility
+                        "height": "100%",  # Take full height
                     })
         ])
             
@@ -214,7 +178,7 @@ def update_matrix_content(selected_table, selected_gene):
      Input('search-input', 'value'),
      Input('metadata-checklist', 'value'),
      Input('log-transform-option', 'value'),
-     Input('plot-style-option', 'value')]  # Add the plot style input
+     Input('plot-style-option', 'value')]
 )
 def update_gene_plot(selected_table, selected_gene, selected_metadata, log_transform, plot_style):
     if not selected_table or not selected_gene:
@@ -246,6 +210,12 @@ def update_gene_plot(selected_table, selected_gene, selected_metadata, log_trans
             WHERE gene_id = ?
         """
         annotation = duck_conn.execute(annotation_query, [actual_gene_id]).pl()
+        
+        # Extract gene annotation details for plot title and subtitle
+        chromosome = annotation["seqnames"][0] if "seqnames" in annotation.columns else "Unknown"
+        strand = annotation["strand"][0] if "strand" in annotation.columns else "?"
+        min_start = annotation["start"].min() if "start" in annotation.columns else "Unknown"
+        max_end = annotation["end"].max() if "end" in annotation.columns else "Unknown"
         
         #############################################################
         # Process the annotation data
@@ -285,7 +255,22 @@ def update_gene_plot(selected_table, selected_gene, selected_metadata, log_trans
                 combined_expr.alias(combined_col_name)
             ])
             
+            # Filter out rows with missing data in any of the selected metadata columns
+            for col_name in selected_metadata:
+                expression = expression.filter(~pl.col(col_name).is_null())
+                
             expression_hue = combined_col_name
+            
+            # Get unique values from combined metadata to create custom color map
+            unique_hue_values = expression[combined_col_name].unique().to_list()
+            
+            # If we have any unique values, ensure they all have colors
+            if len(unique_hue_values) > 0:
+                # We'll add this parameter to make_traces later
+                custom_colors = True
+            else:
+                # No valid data points with this combination
+                expression_hue = None
 
         # Apply log transformation if selected
         if log_transform:
@@ -306,6 +291,8 @@ def update_gene_plot(selected_table, selected_gene, selected_metadata, log_trans
             # Use original columns
             expression_columns = ["counts", "cpm_normalized_tmm", "relative_abundance"]
         
+
+
         # Update the trace creation to use the correct columns
         trace_params = {
             "annotation": annotation,
@@ -317,59 +304,108 @@ def update_gene_plot(selected_table, selected_gene, selected_metadata, log_trans
             "hover_start": "start",
             "hover_end": "end",
             "expression_columns": expression_columns,
-            "marker_size": 3,
-            "arrow_size": 7,
+            "marker_size": 5,
+            "arrow_size": 12,
             "expression_plot_style": plot_style  # Add the plot style parameter
         }
         
+        ## Create appropriate color palette for the expression_hue
+        if expression_hue is not None:
+            unique_hue_values = expression[expression_hue].unique().to_list()
+            if len(unique_hue_values) > 0:
+                # Use a continuous pastel rainbow colorscale for softer visual progression
+                # This provides a smoother transition between pastel colors while maintaining differentiation
+                custom_colors_list = get_n_colors(len(unique_hue_values), 'Plotly_r')
+                # Other bright options could be 'Rainbow', 'Jet', or 'HSV' for maximum visibility
+                color_map = {val: color for val, color in zip(unique_hue_values, custom_colors_list)}
+                trace_params["expression_color_map"] = color_map
         # Only add expression_hue if it's not None
         if expression_hue is not None:
             trace_params["expression_hue"] = expression_hue
-            
+            expression = expression.sort(by=expression_hue, descending=True)
+            trace_params["expression_matrix"] = expression
+
         traces = RNApy.make_traces(**trace_params)
         
         # Create appropriate subplot titles based on transformation
         if log_transform:
-            subplot_titles = ["Transcript Structure", "Log Counts", "Log TMM", "Relative Abundance"]
+            subplot_titles = ["Transcript Structure", "Log Counts", "Log TMM(per million)", "Relative Abundance(%)"]
         else:
-            subplot_titles = ["Transcript Structure", "Counts", "TMM", "Relative Abundance"]
+            subplot_titles = ["Transcript Structure", "Counts", "TMM(per million)", "Relative Abundance(%)"]
             
         fig = RNApy.make_plot(traces=traces, 
                     subplot_titles=subplot_titles,
-                    width=1500,  
-                    height=600,
                     boxgap=0.1,
-                    boxgroupgap=0.1)
-                    
-
-        # Then update the layout to be responsive
+                    boxgroupgap=0.1, width=2200, height=1000, legend_font_size=20,
+                    yaxis_font_size=16, xaxis_font_size=20,
+                    hover_font_size=20, subplot_title_font_size=24, template="ggplot2", legend_title_font_size=20,
+                    column_widths=[0.4, 0.2, 0.2, 0.2])
+        
+        # Calculate the expanded x-axis range for the first subplot
+        # Get the min and max x values from the annotation data
+        x_min = annotation["rescaled_start"].min() if "rescaled_start" in annotation.columns else 0
+        x_max = annotation["rescaled_end"].max() if "rescaled_end" in annotation.columns else 1
+        
+        # Add padding to both sides (10% of the total range)
+        padding = (x_max - x_min) * 0.05
+        new_x_min = x_min - padding
+        new_x_max = x_max + padding
+        
+        # Update the x-axis limits for the first subplot and remove ticks
+        fig.update_xaxes(
+            range=[new_x_min, new_x_max],
+            showticklabels=False,  # Hide tick labels
+            showline=False,        # Hide axis line
+            zeroline=False,        # Hide zero line
+            ticks="",             # Remove tick marks
+            row=1, col=1
+        )
+        
+        # Set the relative abundance subplot (row 2, col 2) y-axis range and ticks
+        fig.update_xaxes(
+            range=[-0.5, 100.5],  # Fixed range from -0.5 to 100.5
+            tickvals=[0, 20, 40, 60, 80, 100],  # Tick marks at intervals of 20
+            row=1, col=4
+        )
+        
+        # Update layout with gene info title and subtitle
         fig.update_layout(
             autosize=True,
-            # Compact margins for smaller screens
-            margin=dict(l=30, r=30, t=50, b=30),
-            # Ensure text sizes adjust with resizing
-            font=dict(
-                size=10  # Smaller base font size that can scale up
-            ),
-            legend=dict(
-                font=dict(size=10)
-            )
-        )
-        #############################################################
-        
-        # Return the figure as a Dash Graph component
+            title={
+                'text': f"{gene_name} ({actual_gene_id})<br><sub>Region: chr{chromosome}({strand}):{min_start}-{max_end}</sub>",
+                'y': 0.98,
+                'x': 0.5,
+                'xanchor': 'center',
+                'yanchor': 'top',
+                'font': {'size': 26}
+            })
+            
+        # Update subplot titles separately - the subplot_titles parameter should be a list, not a dict
+        for i, annotation in enumerate(fig['layout']['annotations']):
+            if i < len(subplot_titles):  # Only modify the subplot title annotations
+                if i == 0:
+                    annotation["x"] = 0
+                elif i == 1:
+                    annotation["x"] = 0.395
+                elif i ==2:
+                    annotation["x"] = 0.602
+                else:
+                    annotation["x"] = 0.812
+                annotation["xanchor"] = "left"
+
         return dcc.Graph(
             figure=fig,
             style={
-                "height": "100%",
-                "width": "100%",
-                "max-height": "70vh",  # Limit maximum height to 70% of viewport height
-                "overflow": "hidden"   # Prevent overflow
+                "height": "100%",  # Take full height of parent
+                "width": "100%",   # Take full width of parent
+                "min-height": "0"  # Allow container to shrink
             },
             config={
                 "responsive": True,
                 "displayModeBar": True,
-                "scrollZoom": True
+                "scrollZoom": True,
+                "modeBarButtonsToRemove": ["autoScale2d"],
+                "displaylogo": False
             }
         )
         

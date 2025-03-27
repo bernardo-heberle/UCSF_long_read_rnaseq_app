@@ -1,56 +1,116 @@
-/* Dropdown styling */
-.Select-control {
-    background-color: #ffffff !important;
-    border-color: #ced4da !important;
+/* Custom styles for the app */
+body {
+    background-color: #e3f2fd;  /* A light blue that complements the COSMO theme */
 }
 
-.Select-value-label {
-    color: #333333 !important;
+/* Ensure the app container has proper spacing */
+.dbc {
+    margin-top: 20px;
+    margin-bottom: 20px;
 }
 
-.Select-menu-outer {
-    background-color: #ffffff !important;
-    border-color: #ced4da !important;
+/* Style content areas with very light backgrounds */
+.row, .col {
+    background-color: #fcfcfc;  /* Very soft white for content areas */
 }
 
+/* Ensure cards and content containers have consistent styling */
+.card, .dbc-card {
+    background-color: #fcfcfc !important;
+}
+
+/* Make tab fonts bigger and improve their appearance */
+.nav-tabs .nav-link {
+    font-size: 1.2rem;  /* Increased font size for tab labels */
+    font-weight: 500;  /* Medium font weight for better readability */
+    padding: 0.8rem 1.5rem;  /* Increased padding for better spacing */
+    margin-right: 0.5rem;  /* Add space between tabs */
+    border-radius: 4px 4px 0 0;  /* Rounded top corners */
+    transition: all 0.2s ease;  /* Smooth transition for hover effects */
+}
+
+/* Style active tab */
+.nav-tabs .nav-link.active {
+    font-weight: 600;  /* Slightly bolder for active tab */
+    border-bottom: 2px solid #2780E3;  /* Thicker bottom border for active tab */
+}
+
+/* Add subtle hover effect */
+.nav-tabs .nav-link:hover {
+    background-color: rgba(39, 128, 227, 0.05);  /* Very light blue background on hover */
+}
+
+/* Compact styling for radio button containers */
+.card-body {
+    padding: 0.25rem !important;  /* Even smaller padding in card bodies */
+}
+
+/* Style radio button containers to match dropdown height */
+.radio-group-container {
+    height: 28px;  /* Reduced height to match dropdown better */
+    display: flex;
+    align-items: center;
+    padding: 0 0.5rem;  /* Add small horizontal padding */
+}
+
+/* Adjust radio button spacing */
+.radio-group-container .form-check {
+    margin-right: 0.75rem;  /* Reduced spacing between options */
+    margin-bottom: 0;
+}
+
+/* Ensure radio buttons align with other elements */
+.form-check-input {
+    margin-top: 0.2rem;  /* Slightly reduced top margin */
+}
+
+.form-check-label {
+    margin-bottom: 0;
+    line-height: 1.3;  /* Reduced line height */
+    font-size: 1rem;  /* Slightly smaller font size */
+    font-weight: bold;  /* Make the font bold */
+}
+
+/* Style search bar and dropdown text */
+.Select-control,
+.Select-menu-outer,
+.Select-value-label,
+.Select-placeholder,
+.Select--single > .Select-control .Select-value,
+.Select--single > .Select-control .Select-value-label {
+    font-size: 1rem !important;
+    font-weight: bold !important;
+}
+
+/* Ensure dropdown options are also bold */
 .Select-option {
-    background-color: #ffffff !important;
-    color: #333333 !important;
+    font-size: 1rem !important;
+    font-weight: bold !important;
 }
 
-.Select-option:hover {
-    background-color: #f8f9fa !important;
+/* Style the search input text */
+.Select-search__input {
+    font-size: 1rem !important;
+    font-weight: bold !important;
 }
 
-.Select-option.is-selected {
-    background-color: #e9ecef !important;
-    color: #2780E3 !important;
+/* Style section headers and other text in tab2 */
+.section-header,
+p[style*="font-size: 1.1rem"] {
+    font-size: 1.2rem !important;  /* 20% bigger than 1rem */
+    font-weight: bold !important;
 }
 
-.Select-value {
-    background-color: #f8f9fa !important;
-    border-color: #ced4da !important;
+/* Style card headers and other text */
+.card-header,
+.card-title,
+.card-subtitle {
+    font-size: 1.2rem !important;
+    font-weight: normal !important;
 }
 
-/* Added styles for placeholder */
-.Select-placeholder {
-    color: #6c757d !important;
+/* Style any other text elements in the cards */
+.card-body {
+    font-size: 1.2rem !important;
+    font-weight: normal !important;
 }
-
-.Select input {
-    color: #333333 !important;
-}
-
-/* Additional COSMO theme styles */
-.nav-tabs-clean .nav-link {
-    color: #333333 !important;
-}
-
-.nav-tabs-clean .nav-link.active {
-    color: #2780E3 !important;
-    border-bottom-color: #2780E3 !important;
-}
-
-.nav-tabs-clean .nav-link:hover {
-    color: #2780E3 !important;
-} 
