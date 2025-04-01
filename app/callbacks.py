@@ -13,6 +13,8 @@ from app.utils.db_utils import get_gene_data_with_metadata, duck_conn, POLARS_AV
 from app.utils.polars_utils import order_transcripts_by_expression
 from app.utils.plotly_utils import get_n_colors
 import RNApysoforms as RNApy
+from dash import ClientsideFunction
+import plotly.graph_objects as go
 
 # Callback to update the active tab when a nav link is clicked
 @app.callback(
@@ -85,12 +87,23 @@ def render_content(tab):
 )
 def update_matrix_content(selected_table, selected_gene):
     if not selected_table:
-        return html.P("Please select a matrix table", 
-                     style={"color": "#666666"})
+        return html.Div(
+            html.P("Please select a matrix table", 
+                  style={"color": "#666666", "margin": 0}),
+            style={
+                "height": "100%",
+                "width": "100%",
+                "display": "flex",
+                "justify-content": "center",
+                "align-items": "center",
+                "min-height": "500px",  # Set a minimum height to ensure good visibility
+                "background-color": "#f8f9fa",
+                "border-radius": "6px"
+            }
+        )
     
     if not selected_gene:
-        return html.P("Please select a gene to display data", 
-                     style={"color": "#666666"})
+        return html.Div()  # Return empty div when no gene is selected
     
     try:
         # Verify the gene exists using our compatibility wrapper
@@ -148,19 +161,8 @@ def update_matrix_content(selected_table, selected_gene):
             except Exception as final_e:
                 raise Exception(f"All data retrieval methods failed. Last error: {str(final_e)}")
         
-        # Return only the visualization container without the information display
-        return html.Div([
-            html.Div(id='gene-plot-container', 
-                    style={
-                        "background-color": "#ffffff",
-                        "padding": "10px",  # Reduced padding
-                        "border-radius": "5px",
-                        "border": "1px solid rgba(0, 0, 0, 0.1)",
-                        "box-shadow": "0 2px 4px rgba(0, 0, 0, 0.1)",
-                        "width": "100%",
-                        "height": "100%",  # Take full height
-                    })
-        ])
+        # Return an empty div to let the gene-plot-container update with the data
+        return html.Div()
             
     except Exception as e:
         import traceback
@@ -170,21 +172,64 @@ def update_matrix_content(selected_table, selected_gene):
                  style={"color": "#dc3545"}),  # Error in red
             html.Pre(trace, style={"color": "#dc3545", "font-size": "0.8rem"})
         ])
+      
+# Register a clientside callback to track window dimensions
+# This callback uses JavaScript to measure the browser window size
+# and stores the dimensions in the "window-dimensions" data store
+# The callback is triggered by the interval component defined in layout.py
+app.clientside_callback(
+    ClientsideFunction(
+        namespace='clientside',  # This must match the window.clientside object
+        function_name='updateWindowDimensions'  # This must match the function name
+    ),
+    Output("window-dimensions", "data"),
+    Input("interval", "n_intervals"),
+    prevent_initial_call=True
+)
 
 # Add a new callback for the plot
 @app.callback(
-    Output('gene-plot-container', 'children'),
+    [Output('gene-plot-container', 'children'),
+     Output('isoform-plot-store', 'data')],
     [Input('matrix-table-dropdown', 'value'),
      Input('search-input', 'value'),
      Input('metadata-checklist', 'value'),
      Input('log-transform-option', 'value'),
-     Input('plot-style-option', 'value')]
+     Input('plot-style-option', 'value'),
+     Input('window-dimensions', 'data'),
+     Input('isoform-range-slider', 'value')]
 )
-def update_gene_plot(selected_table, selected_gene, selected_metadata, log_transform, plot_style):
-    if not selected_table or not selected_gene:
-        return html.P("Select a gene and table to display the visualization.", 
-                     style={"color": "#666666"})
+def update_gene_plot(selected_table, selected_gene, selected_metadata, log_transform, plot_style, window_dimensions, isoform_range):
     
+    # Return message if no gene is selected
+    if not selected_gene:
+        return html.Div(
+            html.P("Please select a gene to display data", 
+                  style={"color": "#666666", "margin": 0}),
+            style={
+                "height": "100%",
+                "width": "100%",
+                "display": "flex",
+                "justify-content": "center",
+                "align-items": "center",
+                "min-height": "500px",
+                "background-color": "#f8f9fa",
+                "border-radius": "6px"
+            }
+        ), None
+    
+   #Create scaling factor
+    scaling_factor = window_dimensions["width"]/2540
+
+    # Ensure minimum dimensions for usability
+    if window_dimensions["width"] > window_dimensions["height"]:
+        plot_width = window_dimensions['width'] * 0.8
+        plot_height = window_dimensions['height'] * 0.8
+    else:
+        plot_width = window_dimensions['width'] * 0.7
+        plot_height = window_dimensions['height'] * 0.8
+    
+
     try:
         # Get gene info
         gene_info = duck_conn.execute("""
@@ -195,8 +240,20 @@ def update_gene_plot(selected_table, selected_gene, selected_metadata, log_trans
         """, [selected_gene]).fetchone()
         
         if not gene_info:
-            return html.P(f"Gene ID '{selected_gene}' not found for visualization.", 
-                        style={"color": "#666666"})
+            return html.Div(
+                html.P("Gene not found in the annotation table", 
+                      style={"color": "#666666", "margin": 0}),
+                style={
+                    "height": "100%",
+                    "width": "100%",
+                    "display": "flex",
+                    "justify-content": "center",
+                    "align-items": "center",
+                    "min-height": "500px",
+                    "background-color": "#f8f9fa",
+                    "border-radius": "6px"
+                }
+            ), None
         
         actual_gene_id, gene_name = gene_info
         
@@ -221,12 +278,14 @@ def update_gene_plot(selected_table, selected_gene, selected_metadata, log_trans
         # Process the annotation data
         annotation = RNApy.shorten_gaps(annotation)
         
-        # Order transcripts by expression level - show top 10 expressed transcripts
+        # Convert 1-based slider values to 0-based indices for the function
+        # Add 1 to the upper bound to make it inclusive
+        zero_based_range = [isoform_range[0] - 1, isoform_range[1]]
         expression, annotation = order_transcripts_by_expression(
             annotation_df=annotation, 
             expression_df=expression, 
             expression_column="cpm_normalized_tmm",
-            top_n=[0,5]  # Show top 10 transcripts by default
+            top_n=zero_based_range  # Use the converted range
         )
 
         # Handle metadata selection for expression_hue
@@ -242,6 +301,7 @@ def update_gene_plot(selected_table, selected_gene, selected_metadata, log_trans
             
             # Convert selected columns to strings and combine them
             # First create an expression that converts each column to string
+            
             
             # Start with the first column
             combined_expr = pl.col(selected_metadata[0]).cast(pl.Utf8)
@@ -262,7 +322,7 @@ def update_gene_plot(selected_table, selected_gene, selected_metadata, log_trans
             expression_hue = combined_col_name
             
             # Get unique values from combined metadata to create custom color map
-            unique_hue_values = expression[combined_col_name].unique().to_list()
+            unique_hue_values = expression[combined_col_name].unique().sort().to_list()
             
             # If we have any unique values, ensure they all have colors
             if len(unique_hue_values) > 0:
@@ -304,14 +364,14 @@ def update_gene_plot(selected_table, selected_gene, selected_metadata, log_trans
             "hover_start": "start",
             "hover_end": "end",
             "expression_columns": expression_columns,
-            "marker_size": 5,
-            "arrow_size": 12,
+            "marker_size": 5*scaling_factor,
+            "arrow_size": 12*scaling_factor,
             "expression_plot_style": plot_style  # Add the plot style parameter
         }
         
         ## Create appropriate color palette for the expression_hue
         if expression_hue is not None:
-            unique_hue_values = expression[expression_hue].unique().to_list()
+            unique_hue_values = expression[expression_hue].unique().sort().to_list()
             if len(unique_hue_values) > 0:
                 # Use a continuous pastel rainbow colorscale for softer visual progression
                 # This provides a smoother transition between pastel colors while maintaining differentiation
@@ -332,13 +392,21 @@ def update_gene_plot(selected_table, selected_gene, selected_metadata, log_trans
             subplot_titles = ["Transcript Structure", "Log Counts", "Log TMM(per million)", "Relative Abundance(%)"]
         else:
             subplot_titles = ["Transcript Structure", "Counts", "TMM(per million)", "Relative Abundance(%)"]
-            
+                
+        # Use the dynamic dimensions for your plot
         fig = RNApy.make_plot(traces=traces, 
                     subplot_titles=subplot_titles,
                     boxgap=0.1,
-                    boxgroupgap=0.1, width=2200, height=1000, legend_font_size=20,
-                    yaxis_font_size=16, xaxis_font_size=20,
-                    hover_font_size=20, subplot_title_font_size=24, template="ggplot2", legend_title_font_size=20,
+                    boxgroupgap=0.1, 
+                    width=plot_width, 
+                    height=plot_height,
+                    legend_font_size=20*scaling_factor,
+                    yaxis_font_size=20*scaling_factor, 
+                    xaxis_font_size=20*scaling_factor,
+                    subplot_title_font_size=24*scaling_factor, 
+                    template="ggplot2", 
+                    hover_font_size=14*scaling_factor,
+                    legend_title_font_size=20*scaling_factor,
                     column_widths=[0.4, 0.2, 0.2, 0.2])
         
         # Calculate the expanded x-axis range for the first subplot
@@ -372,15 +440,12 @@ def update_gene_plot(selected_table, selected_gene, selected_metadata, log_trans
         fig.update_layout(
             autosize=True,
             title={
-                'text': f"{gene_name} ({actual_gene_id})<br><sub>Region: chr{chromosome}({strand}):{min_start}-{max_end}</sub>",
+                'text': f"{gene_name} ({actual_gene_id})<br><sub>Region: chr{chromosome}({strand}):{min_start}-{max_end}<sub>",
                 'y': 0.98,
                 'x': 0.5,
                 'xanchor': 'center',
                 'yanchor': 'top',
-                'font': {'size': 26}
-            },
-            legend={
-                'traceorder': 'grouped+reversed'  # Group traces and reverse the order within groups
+                'font': {'size': 26*scaling_factor}
             })
             
         # Update subplot titles separately - the subplot_titles parameter should be a list, not a dict
@@ -395,7 +460,10 @@ def update_gene_plot(selected_table, selected_gene, selected_metadata, log_trans
                 else:
                     annotation["x"] = 0.812
                 annotation["xanchor"] = "left"
-
+            
+        # Create a copy of the figure for the dcc.Store
+        # Directly store the figure for download access
+        
         return dcc.Graph(
             figure=fig,
             style={
@@ -406,11 +474,11 @@ def update_gene_plot(selected_table, selected_gene, selected_metadata, log_trans
             config={
                 "responsive": True,
                 "displayModeBar": True,
-                "scrollZoom": True,
+                "scrollZoom": False,
                 "modeBarButtonsToRemove": ["autoScale2d"],
                 "displaylogo": False
             }
-        )
+        ), fig
         
     except Exception as e:
         import traceback
@@ -430,4 +498,44 @@ def update_gene_plot(selected_table, selected_gene, selected_metadata, log_trans
             html.P(column_info, 
                   style={"color": "#dc3545", "font-size": "0.9rem"}),
             html.Pre(trace, style={"color": "#dc3545", "font-size": "0.8rem"})
-        ])
+        ]), None
+
+@app.callback(
+    [Output('isoform-range-slider', 'max'),
+     Output('isoform-range-slider', 'marks'),
+     Output('isoform-range-slider', 'value')],
+    [Input('search-input', 'value')]
+)
+def update_slider_range(selected_gene):
+    if not selected_gene:
+        # Default range when no gene is selected
+        marks = {i: str(i) for i in range(1, 11)}
+        return 10, marks, [1, 5]
+    
+    try:
+        # Query to get the number of transcripts for this gene
+        transcript_count = duck_conn.execute("""
+            SELECT COUNT(DISTINCT transcript_id) 
+            FROM transcript_annotation 
+            WHERE gene_id = ?
+        """, [selected_gene]).fetchone()[0]
+        
+        if not transcript_count:
+            # Fallback if no transcripts found
+            marks = {i: str(i) for i in range(1, 11)}
+            return 10, marks, [1, 5]
+        
+        # Create marks for the actual number of transcripts
+        marks = {i: str(i) for i in range(1, transcript_count + 1)}
+        
+        # Ensure the range is at least 1 isoform
+        # If current range is [1,1], keep it as is
+        # Otherwise, ensure the range is at least 1 isoform
+        new_value = [1, min(5, transcript_count)]
+        
+        return transcript_count, marks, new_value
+        
+    except Exception as e:
+        # Fallback to default values
+        marks = {i: str(i) for i in range(1, 11)}
+        return 10, marks, [1, 5]

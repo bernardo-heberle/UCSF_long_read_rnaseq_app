@@ -1,17 +1,20 @@
 /* Custom styles for the app */
 body {
     background-color: #e3f2fd;  /* A light blue that complements the COSMO theme */
+    margin: 0;  /* Reset default margin */
+    padding: calc(0.5vw + 5px);  /* Reduced responsive padding */
 }
 
 /* Ensure the app container has proper spacing */
 .dbc {
-    margin-top: 20px;
-    margin-bottom: 20px;
+    margin-top: calc(0.5vh + 5px);  /* Reduced responsive top margin */
+    margin-bottom: calc(0.5vh + 5px);  /* Reduced responsive bottom margin */
 }
 
 /* Style content areas with very light backgrounds */
 .row, .col {
     background-color: #fcfcfc;  /* Very soft white for content areas */
+    padding: calc(0.25vw + 3px);  /* Reduced responsive padding */
 }
 
 /* Ensure cards and content containers have consistent styling */
@@ -19,14 +22,15 @@ body {
     background-color: #fcfcfc !important;
     border: 1px solid rgba(0, 0, 0, 0.2) !important;  /* Darker border for better contrast */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);  /* Add subtle shadow */
+    margin: calc(0.25vh + 3px) calc(0.25vw + 3px);  /* Reduced responsive margins */
 }
 
 /* Make tab fonts bigger and improve their appearance */
 .nav-tabs .nav-link {
-    font-size: 1.2rem;  /* Increased font size for tab labels */
+    font-size: calc(1rem + 0.2vw);  /* Responsive font size */
     font-weight: 500;  /* Medium font weight for better readability */
-    padding: 0.8rem 1.5rem;  /* Increased padding for better spacing */
-    margin-right: 0.5rem;  /* Add space between tabs */
+    padding: calc(0.4rem + 0.4vh) calc(0.75rem + 0.75vw);  /* Responsive padding */
+    margin-right: calc(0.25rem + 0.25vw);  /* Responsive margin */
     border-radius: 4px 4px 0 0;  /* Rounded top corners */
     transition: all 0.2s ease;  /* Smooth transition for hover effects */
 }
@@ -44,23 +48,23 @@ body {
 
 /* Style radio button containers to match dropdown height */
 .radio-group-container {
-    height: 28px;  /* Reduced height to match dropdown better */
+    height: calc(28px + 0.5vh);  /* Responsive height */
     display: flex;
     align-items: center;
-    padding: 0 0.5rem;  /* Add small horizontal padding */
+    padding: 0 calc(0.25rem + 0.25vw);  /* Responsive padding */
     background-color: #fcfcfc !important;  /* Ensure background matches container */
 }
 
 /* Adjust radio button spacing */
 .radio-group-container .form-check {
-    margin-right: 0.75rem;  /* Reduced spacing between options */
+    margin-right: calc(0.5rem + 0.25vw);  /* Responsive spacing */
     margin-bottom: 0;
     background-color: #fcfcfc !important;  /* Ensure background matches container */
 }
 
 /* Ensure radio buttons align with other elements */
 .form-check-input {
-    margin-top: 0.2rem;  /* Slightly reduced top margin */
+    margin-top: calc(0.1rem + 0.1vh);  /* Responsive margin */
     background-color: #fff;  /* White background for the actual input */
     border: 1.5px solid rgba(0, 0, 0, 0.4) !important;  /* Darker, thicker border */
 }
@@ -68,7 +72,7 @@ body {
 .form-check-label {
     margin-bottom: 0;
     line-height: 1.3;  /* Reduced line height */
-    font-size: 1rem;  /* Slightly smaller font size */
+    font-size: calc(0.9rem + 0.1vw);  /* Responsive font size */
     font-weight: bold;  /* Make the font bold */
     background-color: transparent !important;  /* Transparent background to show parent bg */
 }
@@ -76,24 +80,24 @@ body {
 /* Style for checkbox groups */
 .checkbox-group {
     background-color: #fcfcfc !important;  /* Match the radio button container */
-    padding: 0.5rem;
+    padding: calc(0.3rem + 0.2vh) calc(0.3rem + 0.2vw);  /* Responsive padding */
     border: 1px solid rgba(0, 0, 0, 0.2) !important;  /* Add visible border */
     border-radius: 4px;  /* Rounded corners */
 }
 
 .checkbox-group .form-check {
     background-color: #fcfcfc !important;  /* Match container */
-    margin-bottom: 0.5rem;
+    margin-bottom: calc(0.3rem + 0.2vh);  /* Responsive margin */
 }
 
 .checkbox-group .form-check-label {
-    font-size: 1.1rem;  /* Match radio button font size */
+    font-size: calc(0.9rem + 0.2vw);  /* Responsive font size */
     line-height: 1.3;
     margin-bottom: 0;
 }
 
 .checkbox-group .form-check-input {
-    margin-top: 0.2rem;
+    margin-top: calc(0.1rem + 0.1vh);  /* Responsive margin */
 }
 
 /* Fix form-check general styles to ensure proper backgrounds */
@@ -114,26 +118,26 @@ body {
 .Select-placeholder,
 .Select--single > .Select-control .Select-value,
 .Select--single > .Select-control .Select-value-label {
-    font-size: 1rem !important;
+    font-size: calc(0.9rem + 0.1vw) !important;  /* Responsive font size */
     font-weight: bold !important;
 }
 
 /* Ensure dropdown options are also bold */
 .Select-option {
-    font-size: 1rem !important;
+    font-size: calc(0.9rem + 0.1vw) !important;  /* Responsive font size */
     font-weight: bold !important;
 }
 
 /* Style the search input text */
 .Select-search__input {
-    font-size: 1rem !important;
+    font-size: calc(0.9rem + 0.1vw) !important;  /* Responsive font size */
     font-weight: bold !important;
 }
 
 /* Style section headers and other text in tab2 */
 .section-header,
 p[style*="font-size: 1.1rem"] {
-    font-size: 1.2rem !important;  /* 20% bigger than 1rem */
+    font-size: calc(1.1rem + 0.1vw) !important;  /* Responsive font size */
     font-weight: bold !important;
 }
 
@@ -141,14 +145,99 @@ p[style*="font-size: 1.1rem"] {
 .card-header,
 .card-title,
 .card-subtitle {
-    font-size: 1.2rem !important;
+    font-size: calc(1.1rem + 0.1vw) !important;  /* Responsive font size */
     font-weight: normal !important;
 }
 
 /* Style any other text elements in the cards */
 .card-body {
-    padding: 0.25rem !important;  /* Even smaller padding in card bodies */
+    padding: calc(0.15rem + 0.1vh) !important;  /* Responsive padding */
     background-color: #fcfcfc !important;  /* Ensure background matches container */
-    font-size: 1.2rem !important;
+    font-size: calc(1.1rem + 0.1vw) !important;  /* Responsive font size */
     font-weight: normal !important;
+}
+
+/* Range Slider Custom Styling */
+.custom-range-slider .rc-slider-track {
+    background-color: #2780E3;  /* Fill color matching the COSMO theme blue */
+    height: 4px;  /* Slightly thicker track */
+}
+
+.custom-range-slider .rc-slider-rail {
+    background-color: #e9ecef;  /* Light gray background for the track */
+    height: 4px;  /* Match the track height */
+}
+
+.custom-range-slider .rc-slider-handle {
+    border-color: #2780E3;  /* Blue border for the handles */
+    background-color: white;  /* White fill for the handles */
+    box-shadow: 0 0 5px rgba(39, 128, 227, 0.5);  /* Subtle shadow for depth */
+    border-width: 2px;  /* Thicker border */
+    width: 16px;  /* Slightly larger handles */
+    height: 16px;  /* Slightly larger handles */
+    margin-top: -6px;  /* Adjust for the larger handle size */
+}
+
+.custom-range-slider .rc-slider-handle:hover {
+    border-color: #1a68c5;  /* Darker blue on hover */
+}
+
+.custom-range-slider .rc-slider-handle:active {
+    border-color: #1a68c5;  /* Darker blue when active */
+    box-shadow: 0 0 5px rgba(39, 128, 227, 0.8);  /* More pronounced shadow when active */
+}
+
+/* Hide the marks completely */
+.custom-range-slider .rc-slider-mark {
+    display: none;
+}
+
+/* Style the tooltips to make them more visible */
+.custom-range-slider .rc-slider-tooltip {
+    opacity: 1 !important;
+    background-color: white !important;
+    border-color: #2780E3 !important;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.custom-range-slider .rc-slider-tooltip-inner {
+    background-color: white !important;
+    color: #000000 !important; /* Changed to black */
+    font-weight: bold;
+    font-size: 14px !important; /* Increased font size */
+    box-shadow: none;
+}
+
+.custom-range-slider .rc-slider-tooltip-arrow {
+    border-top-color: #2780E3 !important;
+}
+
+/* Make the slider appear smoother */
+.custom-range-slider .rc-slider-step {
+    display: none; /* Hide all step markers */
+}
+
+.custom-range-slider .rc-slider-dot {
+    display: none; /* Hide all dots on the slider */
+}
+
+/* Increase the width of the track for better visibility */
+.custom-range-slider .rc-slider {
+    padding: 10px 0 !important; /* More padding for better touch targets */
+}
+
+.custom-range-slider .rc-slider-rail {
+    height: 6px !important; /* Slightly thicker rail */
+    border-radius: 3px !important;
+}
+
+.custom-range-slider .rc-slider-track {
+    height: 6px !important; /* Match rail height */
+    border-radius: 3px !important;
+}
+
+.custom-range-slider .rc-slider-handle {
+    margin-top: -7px !important; /* Adjust for thicker track */
+    width: 18px !important; /* Larger handle */
+    height: 18px !important; /* Larger handle */
 }

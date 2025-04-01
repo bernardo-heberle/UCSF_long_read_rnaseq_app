@@ -20,7 +20,19 @@ COLORS = {
 
 # Main layout with a header, a tab component, and a content area
 layout = dbc.Container([
-    # Minimal, clean header with enhanced contrast
+    # Window dimensions store - initialize with defaults
+    dcc.Store(
+        id='window-dimensions',
+        storage_type='memory'
+    ),
+
+    # Interval component to trigger the clientside callback (e.g. every second)
+    dcc.Interval(id='interval', interval=500, n_intervals=0),    
+
+    # Load JS code after page load
+    html.Div(id='display-dimensions'),
+    
+    # Minimal, clean header with enhanced contrast and responsive font size
     html.H1("Long-Read RNAseq Atlas of Aged Human Prefrontal Cortex and Alzheimer's Disease", 
         className="mt-5 mb-4 dbc", 
         style={
@@ -29,11 +41,12 @@ layout = dbc.Container([
             "color": COLORS['text-primary'],
             "border-bottom": f"3px solid {COLORS['accent']}",
             "padding-bottom": "0.5rem",
-            "display": "inline-block"
+            "display": "inline-block",
+            "font-size": "calc(1.5rem + 1vw)"  # Responsive font size
         }
     ),
     
-    # Tabs with enhanced styling
+    # Tabs with enhanced styling and responsive font size
     dbc.Tabs(
         id="tabs",
         active_tab="tab-0",
@@ -50,6 +63,7 @@ layout = dbc.Container([
         style={
             "border-bottom": f"1px solid {COLORS['border']}",
             "font-weight": "300",
+            "font-size": "calc(0.85rem + 0.3vw)"  # Responsive font size for tabs
         }
     ),
     
@@ -59,7 +73,8 @@ layout = dbc.Container([
             html.Div(id="content", 
                 className="py-3 dbc",
                 style={
-                    "color": COLORS['text-primary']
+                    "color": COLORS['text-primary'],
+                    "font-size": "calc(0.9rem + 0.2vw)"  # Responsive base font size for content
                 }
             )
         )
@@ -79,16 +94,17 @@ style={
     "margin": "0 auto",
     "padding": "10px",   # Added padding
     "color": COLORS['text-primary'],  # Ensure good contrast for all text
-    "background-color": COLORS['bg-primary']  # White background
+    "background-color": COLORS['bg-primary'],  # White background
+    "font-size": "calc(0.9rem + 0.2vw)"  # Responsive base font size for container
 })
 
 # Mapping of tab values to their corresponding layouts
 content_layout = {
-    "tab-0": tab0.layout,  # New Home tab
-    "tab-1": tab1.layout,
-    "tab-2": tab2.layout,
-    "tab-3": tab3.layout,
-    "tab-4": tab4.layout,
-    "tab-5": tab5.layout,
-    "tab-6": tab6.layout
+    "tab-0": tab0.layout(),  # New Home tab
+    "tab-1": tab1.layout(),
+    "tab-2": tab2.layout(),
+    "tab-3": tab3.layout(),
+    "tab-4": tab4.layout(),
+    "tab-5": tab5.layout(),
+    "tab-6": tab6.layout()
 }

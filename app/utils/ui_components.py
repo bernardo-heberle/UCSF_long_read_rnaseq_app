@@ -18,6 +18,23 @@ def create_gene_search_dropdown(initial_value=None, initial_options=None):
         }
     )
 
+def create_rsid_search_dropdown(initial_value=None, initial_options=None):
+    """Create a dropdown for RSID search with specific styling."""
+    return dcc.Dropdown(
+        id='rsid-search-input',
+        placeholder="Enter RSID (e.g., rs429358)...",
+        clearable=True,
+        searchable=True,
+        options=initial_options or [],
+        value=initial_value,
+        style={
+            "background-color": "#ffffff",
+            "color": "#333333",
+            "border": "1px solid rgba(0, 0, 0, 0.1)",
+            "border-radius": "4px"
+        }
+    )
+
 def create_matrix_dropdown(options, default_value=None):
     """Create a standardized matrix selection dropdown component."""
     return dcc.Dropdown(
