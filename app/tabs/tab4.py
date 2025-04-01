@@ -93,7 +93,7 @@ def update_rsid_search_options(search_value, selected_value):
     return results
 
 @app.callback(
-    [Output('rsid-genotype-plot', 'figure'),
+    [Output('rsid-genotype-plot-container', 'children'),
      Output('genotype-plot-store', 'data')],
     [Input('rsid-search-input', 'value'),
      Input('matrix-table-dropdown', 'value'),
@@ -106,21 +106,21 @@ def update_rsid_search_options(search_value, selected_value):
 )
 def update_rsid_genotype_plot(selected_rsid, selected_table, selected_gene, selected_metadata, log_transform, plot_style, window_dimensions, isoform_range):
     if not selected_rsid or not selected_gene:
-        # Return an empty figure instead of HTML div when no gene is selected
-        empty_fig = go.Figure()
-        empty_fig.add_annotation(
-            text="Please select a gene to display data",
-            x=0.5, y=0.5,
-            xref="paper", yref="paper",
-            showarrow=False,
-            font=dict(color="#666666", size=14)
-        )
-        empty_fig.update_layout(
-            paper_bgcolor="#f8f9fa",
-            plot_bgcolor="#f8f9fa",
-            margin=dict(l=20, r=20, t=20, b=20)
-        )
-        return empty_fig, empty_fig
+        # Return an empty figure wrapped in dcc.Graph component with tab2-like styling
+        return html.Div(
+            html.P("Please select a gene and RSID to display data", 
+                  style={"color": "#666666", "margin": 0}),
+            style={
+                "height": "100%",
+                "width": "100%",
+                "display": "flex",
+                "justify-content": "center",
+                "align-items": "center",
+                "min-height": "500px",
+                "background-color": "#f8f9fa",
+                "border-radius": "6px"
+            }
+        ), None
     
     ## Create scaling factor
     scaling_factor = window_dimensions["width"]/2540
@@ -150,21 +150,21 @@ def update_rsid_genotype_plot(selected_rsid, selected_table, selected_gene, sele
         """, [selected_gene]).fetchone()
         
         if not gene_info:
-            # Return an empty figure with error message
-            empty_fig = go.Figure()
-            empty_fig.add_annotation(
-                text="Gene not found in the annotation table",
-                x=0.5, y=0.5,
-                xref="paper", yref="paper",
-                showarrow=False,
-                font=dict(color="#666666", size=14)
-            )
-            empty_fig.update_layout(
-                paper_bgcolor="#f8f9fa",
-                plot_bgcolor="#f8f9fa",
-                margin=dict(l=20, r=20, t=20, b=20)
-            )
-            return empty_fig, empty_fig
+            # Return an error message with clean styling
+            return html.Div(
+                html.P("Gene not found in the annotation table", 
+                      style={"color": "#666666", "margin": 0}),
+                style={
+                    "height": "100%",
+                    "width": "100%",
+                    "display": "flex",
+                    "justify-content": "center",
+                    "align-items": "center",
+                    "min-height": "500px",
+                    "background-color": "#f8f9fa",
+                    "border-radius": "6px"
+                }
+            ), None
         
         actual_gene_id, gene_name = gene_info
         
@@ -391,48 +391,29 @@ def update_rsid_genotype_plot(selected_rsid, selected_table, selected_gene, sele
         import traceback
         trace = traceback.format_exc()
         
-        # Try to get column names to help with debugging
-        column_info = ""
-        try:
-            if 'expression' in locals() and expression is not None:
-                column_info = f"Available columns: {', '.join(expression.columns)}"
-        except:
-            column_info = "Could not retrieve column names"
-            
-        # Create an error figure instead of HTML div
-        error_fig = go.Figure()
-        error_fig.add_annotation(
-            text=f"Error creating visualization: {str(e)}",
-            x=0.5, y=0.8,
-            xref="paper", yref="paper",
-            showarrow=False,
-            font=dict(color="#dc3545", size=14)
-        )
-        
-        if column_info:
-            error_fig.add_annotation(
-                text=column_info,
-                x=0.5, y=0.6,
-                xref="paper", yref="paper",
-                showarrow=False,
-                font=dict(color="#dc3545", size=12)
-            )
-            
-        error_fig.add_annotation(
-            text=trace,
-            x=0.5, y=0.2,
-            xref="paper", yref="paper",
-            showarrow=False,
-            font=dict(color="#dc3545", size=10)
-        )
-        
-        error_fig.update_layout(
-            paper_bgcolor="#f8f9fa",
-            plot_bgcolor="#f8f9fa",
-            margin=dict(l=20, r=20, t=20, b=20)
-        )
-        
-        return error_fig, error_fig
+        # Return an error message with clean styling
+        return html.Div(
+            [
+                html.P(f"Error creating visualization: {str(e)}", 
+                      style={"color": "#dc3545", "margin": "0 0 10px 0"}),
+                html.Pre(trace, 
+                        style={"color": "#dc3545", "font-size": "0.8rem", "margin": 0})
+            ],
+            style={
+                "height": "100%",
+                "width": "100%",
+                "display": "flex",
+                "flex-direction": "column",
+                "justify-content": "center",
+                "align-items": "center",
+                "min-height": "500px",
+                "background-color": "#f8f9fa",
+                "border-radius": "6px",
+                "padding": "20px",
+                "text-align": "center"
+            }
+        ), None
+
 
 def layout():
     return dbc.Container([
@@ -540,20 +521,35 @@ def layout():
                 dbc.Row([
                     dbc.Col([
                         create_section_header("Genotype Distribution"),
-                        create_content_card([
-                            dcc.Graph(
-                                id='rsid-genotype-plot',
-                                config={
-                                    'displayModeBar': True,
-                                    'scrollZoom': False,
-                                    'modeBarButtonsToRemove': ['autoScale2d'],
-                                    'displaylogo': False
-                                },
-                                style={'height': '400px'}
+                        create_content_card(
+                            dbc.Spinner(
+                                html.Div([
+                                    # Matrix content div
+                                    html.Div(
+                                        id='rsid-genotype-plot-container',
+                                        style={
+                                            "background-color": "#f8f9fa",
+                                            "padding": "10px",
+                                            "border-radius": "5px",
+                                            "border": "1px solid rgba(0, 0, 0, 0.1)",
+                                            "box-shadow": "0 2px 4px rgba(0, 0, 0, 0.1)",
+                                            "width": "100%",
+                                            "height": "100%",
+                                            "min-height": "400px"
+                                        }
+                                    )
+                                ]),
+                                color="primary",
+                                type="grow",
+                                spinner_style={"width": "3rem", "height": "3rem"}
                             )
-                        ])
+                        )
                     ], width=12, id="tab4-col2-1"),
-                ], className="mb-4 dbc", id="tab4-row2"),
+                ], 
+                className="mb-4 dbc",
+                id="tab4-row2",
+                style={"height": "90vh"}  # Make the row take up 90% of viewport height
+                ),
 
                 # Third row - two columns
                 dbc.Row([
