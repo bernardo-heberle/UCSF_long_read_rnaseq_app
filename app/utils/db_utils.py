@@ -60,9 +60,56 @@ GENE_INDEX_LOADED = False  # Flag to track if the gene index is loaded
 GENE_INDEX_LOADING = False  # Flag to track if the gene index is currently loading
 
 # For RSID searching
-ALL_RSIDS = []  # Global list to hold all RSIDs
-RSID_INDEX_LOADED = False  # Flag to track if the RSID index is loaded
-RSID_INDEX_LOADING = False  # Flag to track if the RSID index is currently loading
+ALL_RSIDS = {}  # Change to dictionary for faster lookups
+RSID_INDEX_LOADED = False
+RSID_INDEX_LOADING = False
+RSID_SEARCH_CACHE = {}  # Add cache for search results
+
+class TrieNode:
+    def __init__(self):
+        self.children = {}
+        self.is_end = False
+        self.value = None
+
+class Trie:
+    def __init__(self):
+        self.root = TrieNode()
+    
+    def insert(self, key, value):
+        node = self.root
+        for char in key:
+            if char not in node.children:
+                node.children[char] = TrieNode()
+            node = node.children[char]
+        node.is_end = True
+        node.value = value
+    
+    def find_prefix_matches(self, prefix, max_results=10):
+        results = []
+        node = self.root
+        
+        # Navigate to the prefix node
+        for char in prefix:
+            if char not in node.children:
+                return results
+            node = node.children[char]
+        
+        # Collect all matches from this node
+        def collect_matches(node):
+            if len(results) >= max_results:
+                return
+            if node.is_end:
+                results.append(node.value)
+            for child in node.children.values():
+                collect_matches(child)
+        
+        collect_matches(node)
+        return results
+
+# Add after the global variables
+RSID_TRIE = Trie()  # Trie for RSID prefix matching
+SORTED_RSIDS = []  # Sorted list for binary search
+RSID_BINARY_SEARCH_CACHE = {}  # Cache for binary search results
 
 def _load_gene_index_thread():
     """Background thread to load gene index"""
@@ -476,14 +523,20 @@ def get_gene_data_with_metadata(gene_id, table_name, with_polars=True, limit=100
 
 def clear_cache():
     """Clear all cached data"""
-    global GENE_INFO_CACHE, MATRIX_DATA_CACHE, SEARCH_RESULTS_CACHE, ALL_GENES, GENE_INDEX_LOADED, GENE_INDEX_LOADING, ALL_RSIDS, RSID_INDEX_LOADED, RSID_INDEX_LOADING
+    global GENE_INFO_CACHE, MATRIX_DATA_CACHE, SEARCH_RESULTS_CACHE, ALL_GENES, GENE_INDEX_LOADED, GENE_INDEX_LOADING
+    global ALL_RSIDS, RSID_INDEX_LOADED, RSID_INDEX_LOADING, RSID_SEARCH_CACHE, RSID_TRIE, SORTED_RSIDS, RSID_BINARY_SEARCH_CACHE
+    
     GENE_INFO_CACHE = {}
     MATRIX_DATA_CACHE = {}
     SEARCH_RESULTS_CACHE = {}
     ALL_GENES = []
     GENE_INDEX_LOADED = False
-    ALL_RSIDS = []
+    ALL_RSIDS = {}
     RSID_INDEX_LOADED = False
+    RSID_SEARCH_CACHE = {}
+    RSID_TRIE = Trie()
+    SORTED_RSIDS = []
+    RSID_BINARY_SEARCH_CACHE = {}
     # Don't reset GENE_INDEX_LOADING or RSID_INDEX_LOADING here as it might interfere with ongoing operations
 
 # Cleanup function to call when the app shuts down
@@ -651,96 +704,100 @@ def get_total_gene_data_with_metadata(gene_id, with_polars=True, limit=None):
             raise Exception(f"Error getting total gene data: Original error: {str(e)}, Fallback error: {str(fallback_error)}")
 
 def _load_rsid_index_thread():
-    """Background thread to load RSID index"""
-    global ALL_RSIDS, RSID_INDEX_LOADED, RSID_INDEX_LOADING
+    """Load RSIDs from database into memory in a background thread."""
+    global ALL_RSIDS, RSID_INDEX_LOADING, RSID_INDEX_LOADED, RSID_TRIE, SORTED_RSIDS
     
     try:
-        # Set the loading flag
+        print("Starting background RSID index loading...")
         RSID_INDEX_LOADING = True
+        RSID_INDEX_LOADED = False
         
-        start_time = time.time()
-        
+        print("Querying database for unique RSIDs...")
         with pg_engine.connect() as conn:
             query = text("""
-                SELECT DISTINCT rsid 
-                FROM genotyping
+                SELECT DISTINCT rsid
+                FROM rsids
+                WHERE rsid IS NOT NULL
                 ORDER BY rsid
-                LIMIT 100000  -- Limit to prevent memory issues
             """)
-            all_rsids_raw = conn.execute(query).fetchall()
             
-            # Convert to list for searching
-            ALL_RSIDS = [rsid[0] for rsid in all_rsids_raw]
+            result = conn.execute(query).fetchall()
             
+            # Process results in chunks
+            chunk_size = 100000
+            total_rsids = len(result)
+            processed = 0
+            
+            print(f"Found {total_rsids} unique RSIDs")
+            
+            # Convert to dictionary and build trie
+            ALL_RSIDS = {}
+            SORTED_RSIDS = []
+            for row in result:
+                rsid = row[0]
+                rsid_lower = rsid.lower()
+                ALL_RSIDS[rsid_lower] = rsid
+                RSID_TRIE.insert(rsid_lower, rsid)
+                SORTED_RSIDS.append(rsid_lower)
+                processed += 1
+                
+                if processed % 500000 == 0:
+                    print(f"Processed {processed}/{total_rsids} RSIDs ({(processed/total_rsids)*100:.1f}%)")
+            
+            print("RSID index loading complete")
             RSID_INDEX_LOADED = True
             
-            end_time = time.time()
-            load_time = end_time - start_time
     except Exception as e:
         print(f"Error loading RSID index in background: {e}")
-        # Set empty list in case of failure
-        ALL_RSIDS = []
+        RSID_INDEX_LOADED = False
     finally:
         RSID_INDEX_LOADING = False
-    
-def start_async_rsid_index_load():
-    """Start async loading of RSID index in a background thread"""
-    global RSID_INDEX_LOADING
-    
-    if RSID_INDEX_LOADED or RSID_INDEX_LOADING:
-        return
-        
-    # Create and start background thread
-    thread = threading.Thread(target=_load_rsid_index_thread)
-    thread.daemon = True  # Make thread exit when main program exits
-    thread.start()
-    
-# Start loading the RSID index in the background
-start_async_rsid_index_load()
 
-def _load_rsid_index():
-    """
-    Synchronous function to load the RSID index if needed.
-    Will wait for background loading if it's in progress.
-    """
-    global RSID_INDEX_LOADED, RSID_INDEX_LOADING
+def binary_search_prefix(prefix, max_results=10):
+    """Binary search for prefix matches in sorted RSIDs list."""
+    if not SORTED_RSIDS:
+        return []
     
-    # If already loaded, return immediately
-    if RSID_INDEX_LOADED:
-        return
+    # Check cache first
+    if prefix in RSID_BINARY_SEARCH_CACHE:
+        return RSID_BINARY_SEARCH_CACHE[prefix]
     
-    # If background loading is in progress, wait for it to complete
-    if RSID_INDEX_LOADING:
-        print("RSID index loading in progress, waiting for completion...")
-        while RSID_INDEX_LOADING:
-            time.sleep(0.1)  # Small sleep to reduce CPU usage while waiting
-        return
+    results = []
+    left, right = 0, len(SORTED_RSIDS) - 1
     
-    # If not loaded or loading, do a synchronous load
-    try:
-        print("Loading RSID index synchronously...")
-        with pg_engine.connect() as conn:
-            query = text("""
-                SELECT DISTINCT rsid 
-                FROM genotyping
-                ORDER BY rsid
-                LIMIT 100000  -- Limit to prevent memory issues
-            """)
-            all_rsids_raw = conn.execute(query).fetchall()
-            
-            # Convert to list for searching
-            ALL_RSIDS = [rsid[0] for rsid in all_rsids_raw]
-            
-            RSID_INDEX_LOADED = True
-            print(f"RSID index loaded synchronously: {len(ALL_RSIDS)} unique RSIDs")
-    except Exception as e:
-        print(f"Error loading RSID index synchronously: {e}")
-        # Set empty list in case of failure
-        ALL_RSIDS = []
+    # Find the first occurrence of the prefix
+    while left <= right:
+        mid = (left + right) // 2
+        if SORTED_RSIDS[mid].startswith(prefix):
+            # Found a match, now collect all matches
+            results.append(ALL_RSIDS[SORTED_RSIDS[mid]])
+            # Check left side
+            left_idx = mid - 1
+            while left_idx >= 0 and SORTED_RSIDS[left_idx].startswith(prefix):
+                results.append(ALL_RSIDS[SORTED_RSIDS[left_idx]])
+                left_idx -= 1
+            # Check right side
+            right_idx = mid + 1
+            while right_idx < len(SORTED_RSIDS) and SORTED_RSIDS[right_idx].startswith(prefix):
+                results.append(ALL_RSIDS[SORTED_RSIDS[right_idx]])
+                right_idx += 1
+            break
+        elif SORTED_RSIDS[mid] < prefix:
+            left = mid + 1
+        else:
+            right = mid - 1
+    
+    # Limit results
+    results = results[:max_results]
+    
+    # Cache the results
+    RSID_BINARY_SEARCH_CACHE[prefix] = results
+    return results
 
 def search_rsids(search_value, previous_search=None):
     """
-    Search for RSIDs using the in-memory index.
+    Search for RSIDs using optimized in-memory index.
+    Only performs prefix matching for RSIDs.
     
     Args:
         search_value (str): The current search value
@@ -749,51 +806,33 @@ def search_rsids(search_value, previous_search=None):
     if not search_value:
         return []
     
-    # Make sure RSID index is loaded
-    if not RSID_INDEX_LOADED:
-        _load_rsid_index()
+    # Check cache first
+    cache_key = search_value.lower()
+    if cache_key in RSID_SEARCH_CACHE:
+        return RSID_SEARCH_CACHE[cache_key]
     
-    # If still no RSIDs, fall back to database search
+    # If no RSIDs, fall back to database search
     if not ALL_RSIDS:
         return _search_rsids_database(search_value)
     
     # Convert to lowercase once
     search_value = search_value.lower()
     
-    # In-memory search
-    filtered_results = []
+    # Use dictionary lookups for exact matches (O(1))
     exact_matches = []
-    prefix_matches = []
-    contains_matches = []
+    if search_value in ALL_RSIDS:
+        exact_matches.append(ALL_RSIDS[search_value])
     
-    # First pass: categorize matches
-    for rsid in ALL_RSIDS:
-        lower_rsid = rsid.lower()
-        
-        # Exact match (highest priority)
-        if lower_rsid == search_value:
-            exact_matches.append(rsid)
-        # Prefix match (medium priority)
-        elif lower_rsid.startswith(search_value):
-            prefix_matches.append(rsid)
-        # Contains match (lowest priority)
-        elif search_value in lower_rsid:
-            contains_matches.append(rsid)
-            
-        # Stop when we have enough matches
-        if len(exact_matches) >= 10:
-            break
+    # Use trie for prefix matches (very fast for prefix matching)
+    prefix_matches = RSID_TRIE.find_prefix_matches(search_value, max_results=10 - len(exact_matches))
+    
+    # If trie doesn't find enough matches, try binary search as fallback
+    if len(prefix_matches) < 10 - len(exact_matches):
+        additional_matches = binary_search_prefix(search_value, max_results=10 - len(exact_matches) - len(prefix_matches))
+        prefix_matches.extend(additional_matches)
     
     # Combine results in priority order
-    filtered_results = exact_matches
-    
-    # Add prefix matches if needed
-    if len(filtered_results) < 10:
-        filtered_results.extend(prefix_matches[:10 - len(filtered_results)])
-    
-    # Add contains matches if needed
-    if len(filtered_results) < 10:
-        filtered_results.extend(contains_matches[:10 - len(filtered_results)])
+    filtered_results = exact_matches + prefix_matches
     
     # Convert to options format
     options = []
@@ -803,46 +842,31 @@ def search_rsids(search_value, previous_search=None):
             'value': rsid
         })
     
+    # Cache the results
+    RSID_SEARCH_CACHE[cache_key] = options
     return options
 
 def _search_rsids_database(search_value):
     """Fallback to database search if in-memory index fails"""
     try:
         with pg_engine.connect() as conn:
-            # For very short searches, just do a prefix match
-            if len(search_value) < 3:
-                query = text("""
+            # Optimized query using index hints
+            query = text("""
+                WITH rsid_matches AS (
                     SELECT DISTINCT rsid
-                    FROM genotyping 
-                    WHERE LOWER(rsid) LIKE :prefix
-                    LIMIT 10
-                """)
-                result = conn.execute(query, {"prefix": f"{search_value.lower()}%"}).fetchall()
-            else:
-                # For longer searches, do a more comprehensive search
-                query = text("""
-                    WITH ranked_results AS (
-                        SELECT DISTINCT 
-                            rsid,
-                            CASE 
-                                WHEN LOWER(rsid) = :exact THEN 1
-                                WHEN LOWER(rsid) LIKE :prefix THEN 2
-                                ELSE 3
-                            END as match_rank
-                        FROM genotyping 
-                        WHERE LOWER(rsid) LIKE :pattern
-                    )
-                    SELECT rsid
-                    FROM ranked_results
-                    ORDER BY match_rank, rsid
-                    LIMIT 10
-                """)
-                
-                result = conn.execute(query, {
-                    "exact": search_value.lower(),
-                    "prefix": f"{search_value.lower()}%",
-                    "pattern": f"%{search_value.lower()}%"
-                }).fetchall()
+                    FROM rsids 
+                    WHERE rsid IS NOT NULL
+                    AND LOWER(rsid) LIKE :prefix
+                )
+                SELECT rsid
+                FROM rsid_matches
+                ORDER BY rsid
+                LIMIT 10
+            """)
+            
+            result = conn.execute(query, {
+                "prefix": f"{search_value.lower()}%"
+            }).fetchall()
             
             # Convert to options format
             options = []
@@ -868,24 +892,40 @@ def get_rsid_data(rsid, with_polars=True):
     
     Returns:
         DataFrame: Either a Polars or Pandas DataFrame containing the genotyping data
+        
+    Raises:
+        Exception: If there's an error in the query or if the RSID is not found
     """
+    # Return empty DataFrame if rsid is None
+    if rsid is None:
+        if with_polars and POLARS_AVAILABLE:
+            return pl.DataFrame()
+        return pd.DataFrame()
+    
+    # Create a cache key for this specific query
+    cache_key = f"rsid_{rsid}_{with_polars}"
+    
+    # Check if we have this cached already
+    if cache_key in MATRIX_DATA_CACHE:
+        cached_data = MATRIX_DATA_CACHE[cache_key]
+        return cached_data
+    
     try:
         with pg_engine.connect() as conn:
-            
-            # Verify the RSID exists
-            verify_query = text("""
-                SELECT COUNT(*) 
-                FROM genotyping 
-                WHERE rsid = :rsid
+            # First get the column names from the genotyping table
+            cols_query = text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'genotyping'
+                ORDER BY ordinal_position
             """)
-            count = conn.execute(verify_query, {"rsid": rsid}).scalar()
+            cols = [row[0] for row in conn.execute(cols_query).fetchall()]
             
-            if count == 0:
-                raise Exception(f"RSID '{rsid}' not found in genotyping table")
+            # Build the query with explicit column selection
+            cols_str = ", ".join(cols)
             
-            # If no suitable join column was found, just query the genotyping table
-            query = text("""
-                SELECT * 
+            query = text(f"""
+                SELECT {cols_str}
                 FROM genotyping
                 WHERE rsid = :rsid
             """)
@@ -893,32 +933,39 @@ def get_rsid_data(rsid, with_polars=True):
             # Read directly to pandas
             df = pd.read_sql(query, conn, params={"rsid": rsid})
             
-            # If we didn't find a join column but want to analyze with metadata, 
-            # we could still try other approaches here
-                
+            if df.empty:
+                raise Exception(f"RSID '{rsid}' not found in genotyping table")
+            
             # Convert to polars if requested
             if with_polars and POLARS_AVAILABLE:
-                # Ensure column names are unique when converting to polars
                 df = pl.from_pandas(df)
-                
+            
+            # Cache the result
+            MATRIX_DATA_CACHE[cache_key] = df
             return df
                 
     except Exception as e:
         print(f"Error getting RSID data: {e}")
-        # Try a fallback query without the join
+        # Try a fallback query with just the basic columns
         try:
             with pg_engine.connect() as conn:
                 fallback_query = text("""
-                    SELECT * 
+                    SELECT rsid, sample_and_flowcell_id, genotype
                     FROM genotyping
                     WHERE rsid = :rsid
                 """)
                 
                 df = pd.read_sql(fallback_query, conn, params={"rsid": rsid})
                 
+                if df.empty:
+                    raise Exception(f"RSID '{rsid}' not found in genotyping table")
+                
                 if with_polars and POLARS_AVAILABLE:
                     df = pl.from_pandas(df)
-                    
+                
+                # Cache the fallback result
+                MATRIX_DATA_CACHE[cache_key] = df
                 return df
-        except Exception as fallback_e:
-            raise Exception(f"Error getting RSID data: Original error: {str(e)}, Fallback error: {str(fallback_e)}")
+                    
+        except Exception as fallback_error:
+            raise Exception(f"Error getting RSID data: Original error: {str(e)}, Fallback error: {str(fallback_error)}")

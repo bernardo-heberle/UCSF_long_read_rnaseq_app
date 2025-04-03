@@ -396,7 +396,7 @@ def update_gene_plot(selected_table, selected_gene, selected_metadata, log_trans
         # Use the dynamic dimensions for your plot
         fig = RNApy.make_plot(traces=traces, 
                     subplot_titles=subplot_titles,
-                    boxgap=0.1,
+                    boxgap=0.15,
                     boxgroupgap=0.1, 
                     width=plot_width, 
                     height=plot_height,
@@ -436,17 +436,31 @@ def update_gene_plot(selected_table, selected_gene, selected_metadata, log_trans
             row=1, col=4
         )
         
-        # Update layout with gene info title and subtitle
-        fig.update_layout(
-            autosize=True,
-            title={
-                'text': f"{gene_name} ({actual_gene_id})<br><sub>Region: chr{chromosome}({strand}):{min_start}-{max_end}<sub>",
-                'y': 0.98,
-                'x': 0.5,
-                'xanchor': 'center',
-                'yanchor': 'top',
-                'font': {'size': 26*scaling_factor}
-            })
+        # Main title annotation:
+        fig.add_annotation(
+            x=0.5,
+            y=1.12,
+            xref='paper',
+            yref='paper',
+            text=f"{gene_name} ({actual_gene_id})",
+            showarrow=False,
+            xanchor="center",
+            yanchor="top",
+            font=dict(size=26 * scaling_factor)
+        )
+
+        # Subtitle annotation:
+        fig.add_annotation(
+            x=0.5,
+            y=1.08,  # Slightly lower than the main title
+            xref='paper',
+            yref='paper',
+            text=f"Region: chr{chromosome}({strand}):{min_start}-{max_end}",
+            showarrow=False,
+            xanchor="center",
+            yanchor="top",
+            font=dict(size=18 * scaling_factor)
+        )
             
         # Update subplot titles separately - the subplot_titles parameter should be a list, not a dict
         for i, annotation in enumerate(fig['layout']['annotations']):

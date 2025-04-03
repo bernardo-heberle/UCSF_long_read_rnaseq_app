@@ -38,7 +38,7 @@ density_fig.update_layout(
     margin=dict(l=50, r=20, t=50, b=50),
     title={
         'text': "Gene Expression Distribution (All expressed genes, mean counts > 0)",
-        'y':0.95,
+        'y':0.97,
         'x':0.02,
         'xanchor': 'left',
         'yanchor': 'middle',
@@ -351,7 +351,7 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, log_transf
             ),
             title={
                 'text': f"Total Gene Expression: {gene_name}",
-                'y':0.95,
+                'y':0.97,
                 'x':0.02,
                 'xanchor': 'left',
                 'yanchor': 'middle',
@@ -406,7 +406,7 @@ def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, se
         import os
         
         temp_dir = tempfile.mkdtemp()
-        zip_filename = f"{gene_name}_plots.zip"
+        zip_filename = f"{gene_name}_RNA_isoform_expression_plots.zip"
         zip_path = os.path.join(temp_dir, zip_filename)
         
         # Create a zip file
@@ -416,6 +416,25 @@ def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, se
                 print("Creating density plot SVG")
                 density_svg_name = f"{gene_name}_density_distribution_plot.svg"
                 real_fig = go.Figure(density_fig)
+                # Update layout for larger size and wider ratio
+                real_fig.update_layout(
+                    width=1200,  # Increased width
+                    height=800,  # Increased height
+                    margin=dict(l=80, r=40, t=80, b=60),  # Adjusted margins
+                    title=dict(
+                        font=dict(size=24),  # Larger title
+                        y=0.95,
+                        x=0.02
+                    ),
+                    xaxis=dict(
+                        title_font=dict(size=20),
+                        tickfont=dict(size=16)
+                    ),
+                    yaxis=dict(
+                        title_font=dict(size=20),
+                        tickfont=dict(size=16)
+                    )
+                )
                 density_svg = real_fig.to_image(format="svg").decode('utf-8')
                 zipf.writestr(density_svg_name, density_svg)
                 print(f"Added density plot to zip: {density_svg_name}")
@@ -425,6 +444,32 @@ def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, se
                 print("Creating gene expression plot SVG")
                 gene_expr_svg_name = f"{gene_name}_gene_expression_plot.svg"
                 real_fig = go.Figure(gene_level_fig)
+                # Update layout for larger size and wider ratio
+                real_fig.update_layout(
+                    width=1200,  # Increased width
+                    height=800,  # Increased height
+                    margin=dict(l=80, r=40, t=80, b=60),  # Adjusted margins
+                    title=dict(
+                        font=dict(size=24),  # Larger title
+                        y=0.975,
+                        x=0.02
+                    ),
+                    xaxis=dict(
+                        title_font=dict(size=20),
+                        tickfont=dict(size=16)
+                    ),
+                    yaxis=dict(
+                        title_font=dict(size=20),
+                        tickfont=dict(size=16)
+                    ),
+                    legend=dict(
+                        font=dict(size=16),
+                        yanchor="top",
+                        y=1,
+                        xanchor="left",
+                        x=1.02
+                    )
+                )
                 gene_expr_svg = real_fig.to_image(format="svg").decode('utf-8')
                 zipf.writestr(gene_expr_svg_name, gene_expr_svg)
                 print(f"Added gene expression plot to zip: {gene_expr_svg_name}")
