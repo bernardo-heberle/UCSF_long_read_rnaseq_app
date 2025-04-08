@@ -4,7 +4,7 @@
 from dash import html, dcc, Input, Output, callback, no_update, State, MATCH, ALL
 import dash_bootstrap_components as dbc
 from app import app
-from app.utils.db_utils import search_rsids, duck_conn, get_rsid_data, get_matrix_dropdown_options, get_gene_density_data, get_total_gene_data_with_metadata
+from app.utils.db_utils import search_rsids, duck_conn, get_rsid_data, get_matrix_dropdown_options, get_gene_density_data, get_total_gene_data_with_metadata, search_genes
 from app.utils.ui_components import (
     create_gene_search_dropdown,
     create_rsid_search_dropdown,
@@ -71,6 +71,10 @@ density_fig.update_layout(
 last_valid_rsid_options = []
 last_rsid_search_value = None  # Store the last search value
 
+# Store the last valid gene search options
+last_valid_gene_options = []
+last_gene_search_value = None
+
 @app.callback(
     Output('rsid-search-input', 'options'),
     [Input('rsid-search-input', 'search_value'),
@@ -128,41 +132,113 @@ def update_rsid_search_options(search_value, selected_value):
     return results
 
 @app.callback(
-    Output('density-plot-tab4', 'figure'),
-    [Input('search-input', 'value'),
-     Input('search-input', 'options')]
+    Output('search-input-tab4', 'options'),
+    [Input('search-input-tab4', 'search_value'),
+     Input('search-input-tab4', 'value')]
 )
-def update_density_plot(selected_gene, options):
-    if not selected_gene:
-        return density_fig
+def update_gene_search_options_tab4(search_value, selected_value):
+    global last_valid_gene_options, last_gene_search_value
+    
+    # If we have a selected value but no search, return the last options
+    # This keeps the dropdown populated after selection
+    if selected_value and not search_value:
+        # Make sure the selected value is in the options
+        selected_in_options = any(opt.get('value') == selected_value for opt in last_valid_gene_options)
+        if not selected_in_options:
+            # If we have a newly selected value, we need to add it to the options
+            # First get the full gene details from the database
+            try:
+                gene_result = duck_conn.execute("""
+                    SELECT gene_id, gene_name 
+                    FROM transcript_annotation 
+                    WHERE gene_id = ?
+                    LIMIT 1
+                """, [selected_value]).fetchone()
+                
+                if gene_result:
+                    # Add this gene to the options
+                    gene_id, gene_name = gene_result
+                    option = {
+                        'label': f"{gene_name} ({gene_id})",
+                        'value': gene_id
+                    }
+                    last_valid_gene_options = [option]  # Just show the current selection
+            except Exception as e:
+                print(f"Error getting gene details: {e}")
+                # If we can't get the details, just use the raw ID
+                if selected_value:
+                    last_valid_gene_options = [{
+                        'label': f"{selected_value}",
+                        'value': selected_value
+                    }]
         
+        return last_valid_gene_options
+        
+    # If no search value or too short, return latest options
+    if not search_value or len(search_value) < 2:
+        return last_valid_gene_options
+        
+    # Process the search and return results using the existing db_utils function
+    results = search_genes(search_value, last_gene_search_value)
+    
+    # Store the results and search value for future reference
+    if results:
+        last_valid_gene_options = results
+        last_gene_search_value = search_value
+        
+    return results
+
+@app.callback(
+    Output('density-plot-tab4', 'figure'),
+    [Input('search-input-tab4', 'value'),
+     Input('search-input-tab4', 'options'),
+     Input('window-dimensions', 'data')]
+)
+def update_density_plot(selected_gene, options, window_dimensions):
+    # Default window dimensions if not available yet
+    if not window_dimensions:
+        window_dimensions = {'width': 1200, 'height': 800}
+
+    # Create scaling factor and base font size
+    scaling_factor = max(0.5, window_dimensions["width"] / 2540)
+    base_font_size = 20 * scaling_factor
+    title_size = base_font_size * 1.125
+    axis_label_size = base_font_size
+    tick_label_size = base_font_size * 0.875
+    annotation_size = base_font_size * 0.875
+
+    # Always create a figure object to apply scaling
+    fig = go.Figure()
+    for trace in density_fig.data:
+        fig.add_trace(trace)
+    fig.update_layout(density_fig.layout)
+
+    # Apply scaled fonts to the base layout
+    fig.update_layout(
+        title={
+            'font': {'size': title_size, 'weight': 'bold'}
+        },
+        xaxis_title_font_size=axis_label_size,
+        xaxis_tickfont_size=tick_label_size,
+        yaxis_title_font_size=axis_label_size,
+        margin=dict(l=50, r=20, t=60, b=50)
+    )
+
+    if not selected_gene:
+        return fig
+
     try:
-        # Get the gene name from the options
         gene_name = None
         for option in options:
             if option['value'] == selected_gene:
-                # Extract gene name from the label (format: "gene_name (gene_id)")
                 gene_name = option['label'].split(' (')[0]
                 break
-        
         if not gene_name:
-            gene_name = selected_gene  # Fallback to using gene_id if name not found
-            
-        # Get the gene's density plot data
+            gene_name = selected_gene
+
         log10_mean_tmm, expression_percentile = get_gene_density_data(selected_gene)
-        
+
         if log10_mean_tmm is not None and expression_percentile is not None:
-            # Create a new figure and copy the data from the original
-            fig = go.Figure()
-            
-            # Copy all traces from the original figure
-            for trace in density_fig.data:
-                fig.add_trace(trace)
-            
-            # Copy the layout from the original figure
-            fig.update_layout(density_fig.layout)
-            
-            # Add vertical line
             fig.add_vline(
                 x=log10_mean_tmm,
                 line_dash="dash",
@@ -171,42 +247,38 @@ def update_density_plot(selected_gene, options):
                 y0=0,
                 y1=1
             )
-            
-            # Add percentile label at the top of the line
+
             percentile = int(round(expression_percentile * 100, 0))
             suffix = "th"
-            if percentile % 10 == 1 and percentile != 11:
-                suffix = "st"
-            elif percentile % 10 == 2 and percentile != 12:
-                suffix = "nd" 
-            elif percentile % 10 == 3 and percentile != 13:
-                suffix = "rd"
-            
+            if percentile % 10 == 1 and percentile != 11: suffix = "st"
+            elif percentile % 10 == 2 and percentile != 12: suffix = "nd"
+            elif percentile % 10 == 3 and percentile != 13: suffix = "rd"
+
             fig.add_annotation(
                 x=log10_mean_tmm,
                 y=1,
                 text=f"{gene_name} ({percentile}{suffix} percentile)",
                 showarrow=False,
-                font=dict(size=14, color="black", weight="bold"),
+                font=dict(size=annotation_size, color="black", weight="bold"), # Scaled font
                 xref="x",
                 yref="paper",
-                xanchor="right" if log10_mean_tmm > 2.5 else "left",  # Anchor text based on x position
-                align="right" if log10_mean_tmm > 2.5 else "left",    # Align text based on x position
+                xanchor="right" if log10_mean_tmm > 2.5 else "left",
+                align="right" if log10_mean_tmm > 2.5 else "left",
                 yanchor="middle"
             )
             return fig
-            
+
     except Exception as e:
         print(f"Error updating density plot: {e}")
-        
-    return density_fig
+
+    return fig
 
 @app.callback(
     [Output('rsid-genotype-plot-container', 'children'),
      Output('genotype-plot-store', 'data')],
     [Input('rsid-search-input', 'value'),
      Input('matrix-table-dropdown', 'value'),
-     Input('search-input', 'value'),
+     Input('search-input-tab4', 'value'),
      Input('metadata-checklist', 'value'),
      Input('log-transform-option', 'value'),
      Input('plot-style-option', 'value'),
@@ -362,6 +434,10 @@ def update_rsid_genotype_plot(selected_rsid, selected_table, selected_gene, sele
             # Use original columns
             expression_columns = ["counts", "cpm_normalized_tmm", "relative_abundance"]
         
+        # Define annotation colormap (consistent with tab2)
+        annotation_hue_values = ["protein_coding", "retained_intron", "protein_coding_CDS_not_defined", "nonsense_mediated_decay",
+                                 "novel_low_confidence", "novel_high_confidence", "lncRNA", "other"]
+        annotation_colormap = {val: color for val, color in zip(annotation_hue_values, get_n_colors(len(annotation_hue_values), 'Plotly'))}
 
         # Update the trace creation to use the correct columns
         trace_params = {
@@ -376,7 +452,8 @@ def update_rsid_genotype_plot(selected_rsid, selected_table, selected_gene, sele
             "expression_columns": expression_columns,
             "marker_size": 5*scaling_factor,
             "arrow_size": 12*scaling_factor,
-            "expression_plot_style": plot_style  # Add the plot style parameter
+            "expression_plot_style": plot_style,  # Add the plot style parameter
+            "annotation_color_map": annotation_colormap  # Add the annotation colormap here
         }
         
         ## Create appropriate color palette for the expression_hue
@@ -533,17 +610,30 @@ def update_rsid_genotype_plot(selected_rsid, selected_table, selected_gene, sele
 
 @app.callback(
     Output('gene-level-plot-tab4', 'figure'),
-    [Input('search-input', 'value'),
-     Input('search-input', 'options'),
+    [Input('search-input-tab4', 'value'),
+     Input('search-input-tab4', 'options'),
      Input('metadata-checklist', 'value'),
      Input('log-transform-option', 'value'),
      Input('plot-style-option', 'value'),
-     Input('rsid-search-input', 'value')]
+     Input('rsid-search-input', 'value'),
+     Input('window-dimensions', 'data')]
 )
-def update_gene_level_plot(selected_gene, options, selected_metadata, log_transform, plot_style, selected_rsid):
+def update_gene_level_plot(selected_gene, options, selected_metadata, log_transform, plot_style, selected_rsid, window_dimensions):
     if not selected_gene or not selected_rsid:
         return go.Figure()
-        
+
+    # Default window dimensions if not available yet
+    if not window_dimensions:
+        window_dimensions = {'width': 1200, 'height': 800}
+
+    # Create scaling factor and base font size
+    scaling_factor = max(0.5, window_dimensions["width"] / 2540)
+    base_font_size = 20 * scaling_factor
+    title_size = base_font_size * 1.125
+    axis_label_size = base_font_size
+    tick_label_size = base_font_size * 0.875
+    legend_label_size = base_font_size * 0.875
+
     try:
         # Get the gene name from the options
         gene_name = None
@@ -552,24 +642,24 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, log_transf
                 # Extract gene name from the label (format: "gene_name (gene_id)")
                 gene_name = option['label'].split(' (')[0]
                 break
-        
+
         if not gene_name:
             gene_name = selected_gene  # Fallback to using gene_id if name not found
-            
+
         # Get RSID data and rename the sample ID column for joining
         df_rsid = get_rsid_data(selected_rsid, with_polars=True)
         if df_rsid.is_empty():
             return go.Figure()
-            
+
         df_rsid = df_rsid.rename({"sample_and_flowcell_id": "sample_id"})
-        
+
         # Get the gene's data
         df = get_total_gene_data_with_metadata(selected_gene, with_polars=True)
         df = df.join(df_rsid, on="sample_id", how="left")
-        
+
         if df is None or len(df) == 0:
             return go.Figure()
-            
+
         # Handle metadata selection for expression_hue
         if selected_metadata is None or len(selected_metadata) == 0:
             # No metadata selected, use genotype as default
@@ -580,23 +670,23 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, log_transf
         else:
             # Create a combined column that includes both genotype and selected metadata
             combined_col_name = "combined_metadata"
-            
+
             # Start with genotype
             combined_expr = pl.col("genotype").cast(pl.Utf8)
-            
+
             # Add the metadata columns with separator
             for col_name in selected_metadata:
                 combined_expr = combined_expr + pl.lit(" | ") + pl.col(col_name).cast(pl.Utf8)
-            
+
             # Create the new column
             df = df.with_columns([
                 combined_expr.alias(combined_col_name)
             ])
-            
+
             # Filter out rows with missing data in any of the selected metadata columns
             for col_name in selected_metadata:
                 df = df.filter(~pl.col(col_name).is_null())
-                
+
             expression_hue = combined_col_name
             group_col = combined_col_name
 
@@ -612,105 +702,92 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, log_transf
             value_col = "cpm_normalized_tmm"
             axis_title = "TMM(per million)"
 
-        
+
         # Get unique values from the group column, sorted for consistent order
         unique_hue_values = df[group_col].unique().sort(descending=False).to_list()
 
-        
+
         # Generate colors for each group - use the same approach as the transcript plot
-        from app.utils.plotly_utils import get_n_colors
         custom_colors_list = get_n_colors(len(unique_hue_values), 'Plotly_r')
         color_map = {val: color for val, color in zip(unique_hue_values, custom_colors_list)}
-        
+
         # Convert to pandas for easier manipulation with plotly
         pdf = df.to_pandas()
-        
+
         # Create a new figure
         fig = go.Figure()
-        
+
         # Add traces based on plot style
         for group in unique_hue_values[::-1]:
             group_data = pdf[pdf[group_col] == group]
-            
+
             if plot_style == "boxplot":
                 # Add box plot
                 fig.add_trace(go.Box(
                     x=group_data[value_col] if group_data[value_col].count() > 0 else [0],
                     name=str(group),
-                    boxpoints='all',  # Show all points
-                    jitter=0.3,       # Add jitter to points
-                    pointpos=0,       # Position points at the center of box
-                    orientation='h',  # Horizontal orientation
-                    marker=dict(
-                        color='black',  # Black points
-                        size=4          # Smaller points
-                    ),
-                    line=dict(
-                        color='black',  # Black outline
-                        width=1         # Thin line
-                    ),
-                    fillcolor=color_map[group],         # Box fill color
-                    opacity=1,                        # Semi-transparent
-                    boxmean=True                        # Show mean line
+                    boxpoints='all',
+                    jitter=0.3,
+                    pointpos=0,
+                    orientation='h',
+                    marker=dict(color='black', size=4),
+                    line=dict(color='black', width=1),
+                    fillcolor=color_map[group],
+                    opacity=1,
+                    boxmean=True
                 ))
             else:  # violin plot
                 # Add violin plot
                 fig.add_trace(go.Violin(
                     x=group_data[value_col] if group_data[value_col].count() > 0 else [0],
                     name=str(group),
-                    points='all',     # Show all points
-                    pointpos=0,       # Position points at the center
-                    orientation='h',  # Horizontal orientation
-                    jitter=0.3,       # Add jitter to points
-                    marker=dict(
-                        color='black',  # Black points
-                        size=4          # Smaller points
-                    ),
-                    line=dict(
-                        color='black',  # Black outline
-                        width=1         # Thin line
-                    ),
-                    fillcolor=color_map[group],         # Violin fill color
-                    opacity=1,                        # Semi-transparent
-                    box_visible=False,                   # Show box plot inside violin
-                    spanmode='hard'                     # Hard boundaries for violin
+                    points='all',
+                    pointpos=0,
+                    orientation='h',
+                    jitter=0.3,
+                    marker=dict(color='black', size=4),
+                    line=dict(color='black', width=1),
+                    fillcolor=color_map[group],
+                    opacity=1,
+                    box_visible=False,
+                    spanmode='hard'
                 ))
 
-        # Update layout for consistency
+        # Update layout for consistency with responsive fonts
         fig.update_layout(
             template="plotly_white",
-            margin=dict(l=50, r=20, t=50, b=50),
+            margin=dict(l=50, r=20, t=60, b=50), # Adjusted top margin
             showlegend=True,
             legend=dict(
                 orientation="v",
                 yanchor="top",
                 y=1,
                 xanchor="left",
-                x=1.02,  # Position legend outside the plot area on the right
-                font=dict(size=14),
-                traceorder="reversed"  # Standard order for legend, already reversed by our list order
+                x=1.02,
+                font=dict(size=legend_label_size), # Scaled legend font
+                traceorder="reversed"
             ),
             title={
                 'text': f"Total Gene Expression: {gene_name}",
-                'y':0.95,
+                'y':0.97, # Adjusted y position slightly
                 'x':0.02,
                 'xanchor': 'left',
-                'yanchor': 'middle',
-                'font': {'size': 18, 'weight': 'bold'}
+                'yanchor': 'top',
+                'font': {'size': title_size, 'weight': 'bold'} # Scaled title font
             },
             xaxis_title=axis_title,
             xaxis=dict(
-                title_font=dict(size=16),
-                tickfont=dict(size=16)  # Increased tick font size
+                title_font=dict(size=axis_label_size), # Scaled axis label
+                tickfont=dict(size=tick_label_size)  # Scaled tick label
             ),
             yaxis=dict(
-                showticklabels=False,  # Hide y-axis labels
-                title=None  # Remove y-axis title
+                showticklabels=False,
+                title=None
             )
         )
-        
+
         return fig
-            
+
     except Exception as e:
         import traceback
         trace = traceback.format_exc()
@@ -724,7 +801,7 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, log_transf
     [State('density-plot-tab4', 'figure'),
      State('gene-level-plot-tab4', 'figure'),
      State('genotype-plot-store', 'data'),
-     State('search-input', 'value'),
+     State('search-input-tab4', 'value'),
      State('rsid-search-input', 'value')]
 )
 def download_plots_as_svg_tab4(n_clicks, density_fig, gene_level_fig, genotype_fig, selected_gene, selected_rsid):
@@ -924,7 +1001,7 @@ def layout():
                 dbc.Row([
                     dbc.Col([
                         create_section_header("Search Gene:"),
-                        create_gene_search_dropdown()
+                        create_gene_search_dropdown(id='search-input-tab4')
                     ], width=2, id="tab4-gene-search-col"),
                     dbc.Col([
                         create_section_header("Search RSID:"),
@@ -1244,3 +1321,53 @@ def update_tab4_responsiveness(dimensions):
         row3_class, col3_1_width, col3_2_width, col3_3_width,
         row4_class, col4_1_width, col4_2_width
     ) 
+
+# Add the slider update callback
+@app.callback(
+    [Output('isoform-range-slider', 'max'),
+     Output('isoform-range-slider', 'marks'),
+     Output('isoform-range-slider', 'value')],
+    [Input('search-input-tab4', 'value')] # Use the gene search input from tab 4
+)
+def update_slider_range_tab4(selected_gene):
+    if not selected_gene:
+        # Default range when no gene is selected
+        marks = {i: str(i) for i in range(1, 11)}
+        return 10, marks, [1, 5]
+
+    try:
+        # Query to get the number of transcripts for this gene
+        transcript_count = duck_conn.execute("""
+            SELECT COUNT(DISTINCT transcript_id)
+            FROM transcript_annotation
+            WHERE gene_id = ?
+        """, [selected_gene]).fetchone()[0]
+
+        if not transcript_count or transcript_count == 0: # Handle case where gene has 0 transcripts
+            # Fallback if no transcripts found
+            marks = {1: '1'} # Min 1 mark
+            return 1, marks, [1, 1]
+
+        # Max value for slider
+        max_val = max(1, transcript_count) # Ensure max is at least 1
+
+        # Create marks for the actual number of transcripts, ensuring reasonable spacing if count is high
+        if transcript_count <= 20:
+             marks = {i: str(i) for i in range(1, transcript_count + 1)}
+        else: # Reduce marks for large numbers
+             step = max(1, transcript_count // 10) # Aim for ~10 marks
+             marks = {i: str(i) for i in range(1, transcript_count + 1, step)}
+             if transcript_count not in marks: # Ensure last value is a mark
+                 marks[transcript_count] = str(transcript_count)
+
+
+        # Default slider value
+        new_value = [1, min(5, max_val)]
+
+        return max_val, marks, new_value
+
+    except Exception as e:
+        print(f"Error updating slider range for gene {selected_gene}: {e}")
+        # Fallback to default values in case of error
+        marks = {i: str(i) for i in range(1, 11)}
+        return 10, marks, [1, 5] 

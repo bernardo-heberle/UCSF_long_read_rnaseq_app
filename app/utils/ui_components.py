@@ -1,10 +1,10 @@
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 
-def create_gene_search_dropdown(initial_value=None, initial_options=None):
+def create_gene_search_dropdown(initial_value=None, initial_options=None, id='search-input'):
     """Create a dropdown for gene search with specific styling."""
     return dcc.Dropdown(
-        id='search-input',
+        id=id,
         placeholder="Enter gene name or ID...",
         clearable=True,
         searchable=True,
@@ -35,10 +35,10 @@ def create_rsid_search_dropdown(initial_value=None, initial_options=None):
         }
     )
 
-def create_matrix_dropdown(options, default_value=None):
+def create_matrix_dropdown(options, default_value=None, id='matrix-table-dropdown'):
     """Create a standardized matrix selection dropdown component."""
     return dcc.Dropdown(
-        id='matrix-table-dropdown',
+        id=id,
         options=options,
         value=default_value,
         placeholder="Select a data table...",

@@ -4,7 +4,7 @@
 from dash import html, dcc, Input, Output, callback, no_update, State, MATCH, ALL, ClientsideFunction
 import dash_bootstrap_components as dbc
 from app import app
-from app.utils.db_utils import get_matrix_dropdown_options, search_genes, duck_conn, get_gene_density_data, get_total_gene_data_with_metadata
+from app.utils.db_utils import get_matrix_dropdown_options, search_genes, duck_conn, get_gene_density_data, get_total_gene_data_with_metadata, get_gene_data_with_metadata
 from app.utils.ui_components import (
     create_gene_search_dropdown,
     create_matrix_dropdown,
@@ -13,6 +13,8 @@ from app.utils.ui_components import (
     create_radio_items,
     create_checklist
 )
+from app.utils.polars_utils import order_transcripts_by_expression
+from app.utils.plotly_utils import get_n_colors
 import plotly.io as pio
 import plotly.graph_objects as go
 import plotly.express as px
@@ -22,6 +24,7 @@ import io
 import base64
 import kaleido
 import json
+import RNApysoforms as RNApy
 
 # Get the dropdown options
 dropdown_options = get_matrix_dropdown_options()
@@ -61,41 +64,56 @@ last_valid_options = []
 last_search_value = None  # Store the last search value
 
 @app.callback(
-    Output('density-plot', 'figure'),
-    [Input('search-input', 'value'),
-     Input('search-input', 'options')]
+    Output('density-plot-tab2', 'figure'),
+    [Input('search-input-tab2', 'value'),
+     Input('search-input-tab2', 'options'),
+     Input('window-dimensions', 'data')]
 )
-def update_density_plot(selected_gene, options):
+def update_density_plot(selected_gene, options, window_dimensions):
+    # Default window dimensions if not available yet
+    if not window_dimensions:
+        window_dimensions = {'width': 1200, 'height': 800}
+
+    # Create scaling factor and base font size
+    scaling_factor = max(0.5, window_dimensions["width"] / 2540)
+    base_font_size = 20 * scaling_factor
+    title_size = base_font_size * 1.125
+    axis_label_size = base_font_size
+    tick_label_size = base_font_size * 0.875
+    annotation_size = base_font_size * 0.875
+
+    # Always create a figure object to apply scaling
+    fig = go.Figure()
+    for trace in density_fig.data:
+        fig.add_trace(trace)
+    fig.update_layout(density_fig.layout)
+
+    # Apply scaled fonts to the base layout
+    fig.update_layout(
+        title={
+            'font': {'size': title_size, 'weight': 'bold'}
+        },
+        xaxis_title_font_size=axis_label_size,
+        xaxis_tickfont_size=tick_label_size,
+        yaxis_title_font_size=axis_label_size,
+        margin=dict(l=50, r=20, t=60, b=50)
+    )
+
     if not selected_gene:
-        return density_fig
-        
+        return fig
+
     try:
-        # Get the gene name from the options
         gene_name = None
         for option in options:
             if option['value'] == selected_gene:
-                # Extract gene name from the label (format: "gene_name (gene_id)")
                 gene_name = option['label'].split(' (')[0]
                 break
-        
         if not gene_name:
-            gene_name = selected_gene  # Fallback to using gene_id if name not found
-            
-        # Get the gene's density plot data
+            gene_name = selected_gene
+
         log10_mean_tmm, expression_percentile = get_gene_density_data(selected_gene)
-        
+
         if log10_mean_tmm is not None and expression_percentile is not None:
-            # Create a new figure and copy the data from the original
-            fig = go.Figure()
-            
-            # Copy all traces from the original figure
-            for trace in density_fig.data:
-                fig.add_trace(trace)
-            
-            # Copy the layout from the original figure
-            fig.update_layout(density_fig.layout)
-            
-            # Add vertical line
             fig.add_vline(
                 x=log10_mean_tmm,
                 line_dash="dash",
@@ -104,40 +122,36 @@ def update_density_plot(selected_gene, options):
                 y0=0,
                 y1=1
             )
-            
-            # Add percentile label at the top of the line
+
             percentile = int(round(expression_percentile * 100, 0))
             suffix = "th"
-            if percentile % 10 == 1 and percentile != 11:
-                suffix = "st"
-            elif percentile % 10 == 2 and percentile != 12:
-                suffix = "nd" 
-            elif percentile % 10 == 3 and percentile != 13:
-                suffix = "rd"
-            
+            if percentile % 10 == 1 and percentile != 11: suffix = "st"
+            elif percentile % 10 == 2 and percentile != 12: suffix = "nd"
+            elif percentile % 10 == 3 and percentile != 13: suffix = "rd"
+
             fig.add_annotation(
                 x=log10_mean_tmm,
                 y=1,
                 text=f"{gene_name} ({percentile}{suffix} percentile)",
                 showarrow=False,
-                font=dict(size=14, color="black", weight="bold"),
+                font=dict(size=annotation_size, color="black", weight="bold"), # Scaled font
                 xref="x",
                 yref="paper",
-                xanchor="right" if log10_mean_tmm > 2.5 else "left",  # Anchor text based on x position
-                align="right" if log10_mean_tmm > 2.5 else "left",    # Align text based on x position
+                xanchor="right" if log10_mean_tmm > 2.5 else "left",
+                align="right" if log10_mean_tmm > 2.5 else "left",
                 yanchor="middle"
             )
             return fig
-            
+
     except Exception as e:
         print(f"Error updating density plot: {e}")
-        
-    return density_fig
+
+    return fig
 
 @app.callback(
-    Output('search-input', 'options'),
-    [Input('search-input', 'search_value'),
-     Input('search-input', 'value')]
+    Output('search-input-tab2', 'options'),
+    [Input('search-input-tab2', 'search_value'),
+     Input('search-input-tab2', 'value')]
 )
 def update_search_options(search_value, selected_value):
     global last_valid_options, last_search_value
@@ -192,184 +206,147 @@ def update_search_options(search_value, selected_value):
     return results
 
 @app.callback(
-    Output('gene-level-plot', 'figure'),
-    [Input('search-input', 'value'),
-     Input('search-input', 'options'),
-     Input('metadata-checklist', 'value'),
-     Input('log-transform-option', 'value'),
-     Input('plot-style-option', 'value')]
+    Output('gene-level-plot-tab2', 'figure'),
+    [Input('search-input-tab2', 'value'),
+     Input('search-input-tab2', 'options'),
+     Input('metadata-checklist-tab2', 'value'),
+     Input('log-transform-option-tab2', 'value'),
+     Input('plot-style-option-tab2', 'value'),
+     Input('window-dimensions', 'data')]
 )
-def update_gene_level_plot(selected_gene, options, selected_metadata, log_transform, plot_style):
+def update_gene_level_plot(selected_gene, options, selected_metadata, log_transform, plot_style, window_dimensions):
     if not selected_gene:
         return go.Figure()
-        
+
+    # Default window dimensions if not available yet
+    if not window_dimensions:
+        window_dimensions = {'width': 1200, 'height': 800}
+
+    # Create scaling factor and base font size
+    scaling_factor = max(0.5, window_dimensions["width"] / 2540)
+    base_font_size = 20 * scaling_factor
+    title_size = base_font_size * 1.125
+    axis_label_size = base_font_size
+    tick_label_size = base_font_size * 0.875
+    legend_label_size = base_font_size * 0.875
+
     try:
         # Get the gene name from the options
         gene_name = None
         for option in options:
             if option['value'] == selected_gene:
-                # Extract gene name from the label (format: "gene_name (gene_id)")
                 gene_name = option['label'].split(' (')[0]
                 break
-        
         if not gene_name:
-            gene_name = selected_gene  # Fallback to using gene_id if name not found
-            
+            gene_name = selected_gene
+
         # Get the gene's data
         df = get_total_gene_data_with_metadata(selected_gene, with_polars=True)
-        
+
         if df is None or len(df) == 0:
             return go.Figure()
-            
-        # Handle metadata selection for expression_hue
+
+        # Handle metadata selection
         if selected_metadata is None or len(selected_metadata) == 0:
-            # No metadata selected, don't use any expression_hue
             expression_hue = None
-            # Create a basic placeholder category
-            df = df.with_columns([
-                pl.lit("All Samples").alias("_group")
-            ])
+            df = df.with_columns([pl.lit("All Samples").alias("_group")])
             group_col = "_group"
         elif len(selected_metadata) == 1:
-            # If only one metadata column is selected, use it directly
             expression_hue = selected_metadata[0]
             group_col = expression_hue
-            # Filter out nulls
             df = df.filter(~pl.col(group_col).is_null())
         else:
-            # If multiple columns are selected, create a combined column
             combined_col_name = "combined_metadata"
-            
-            # Start with the first column
             combined_expr = pl.col(selected_metadata[0]).cast(pl.Utf8)
-            
-            # Add the rest of the columns with separator
             for col_name in selected_metadata[1:]:
                 combined_expr = combined_expr + pl.lit(" | ") + pl.col(col_name).cast(pl.Utf8)
-            
-            # Create the new column
-            df = df.with_columns([
-                combined_expr.alias(combined_col_name)
-            ])
-            
-            # Filter out rows with missing data in any of the selected metadata columns
+            df = df.with_columns([combined_expr.alias(combined_col_name)])
             for col_name in selected_metadata:
                 df = df.filter(~pl.col(col_name).is_null())
-                
             expression_hue = combined_col_name
             group_col = combined_col_name
 
-        # Apply log transformation if selected
+        # Apply log transformation
         if log_transform:
-            # Create a new column with log transform
-            df = df.with_columns([
-                (pl.col("cpm_normalized_tmm").add(1).log10()).alias("log_cpm_normalized_tmm")
-            ])
+            df = df.with_columns([(pl.col("cpm_normalized_tmm").add(1).log10()).alias("log_cpm_normalized_tmm")])
             value_col = "log_cpm_normalized_tmm"
             axis_title = "Log TMM(per million)"
         else:
             value_col = "cpm_normalized_tmm"
             axis_title = "TMM(per million)"
 
-        
-        # Get unique values from the group column, sorted for consistent order
+        # Get unique values and colors
         unique_hue_values = df[group_col].unique().sort(descending=False).to_list()
+        if expression_hue != None:
+            custom_colors_list = get_n_colors(len(unique_hue_values), 'Plotly_r')
+            color_map = {val: color for val, color in zip(unique_hue_values, custom_colors_list)}
+        else:
+            color_map = {val: 'grey' for val in unique_hue_values}
 
-        
-        # Generate colors for each group - use the same approach as the transcript plot
-        from app.utils.plotly_utils import get_n_colors
-        custom_colors_list = get_n_colors(len(unique_hue_values), 'Plotly_r')
-        color_map = {val: color for val, color in zip(unique_hue_values, custom_colors_list)}
-        
-        # Convert to pandas for easier manipulation with plotly
+        # Convert to pandas
         pdf = df.to_pandas()
-        
-        # Create a new figure
+
+        # Create figure
         fig = go.Figure()
-        
-        # Add traces based on plot style
+
+        # Add traces
         for group in unique_hue_values[::-1]:
             group_data = pdf[pdf[group_col] == group]
-            
             if plot_style == "boxplot":
-                # Add box plot
                 fig.add_trace(go.Box(
                     x=group_data[value_col] if group_data[value_col].count() > 0 else [0],
                     name=str(group),
-                    boxpoints='all',  # Show all points
-                    jitter=0.3,       # Add jitter to points
-                    pointpos=0,       # Position points at the center of box
-                    orientation='h',  # Horizontal orientation
-                    marker=dict(
-                        color='black',  # Black points
-                        size=4          # Smaller points
-                    ),
-                    line=dict(
-                        color='black',  # Black outline
-                        width=1         # Thin line
-                    ),
-                    fillcolor=color_map[group],         # Box fill color
-                    opacity=1,                        # Semi-transparent
-                    boxmean=True                        # Show mean line
+                    boxpoints='all', jitter=0.3, pointpos=0, orientation='h',
+                    marker=dict(color='black', size=4),
+                    line=dict(color='black', width=1),
+                    fillcolor=color_map[group], opacity=1, boxmean=True
                 ))
-            else:  # violin plot
-                # Add violin plot
+            else: # violin plot
                 fig.add_trace(go.Violin(
                     x=group_data[value_col] if group_data[value_col].count() > 0 else [0],
                     name=str(group),
-                    points='all',     # Show all points
-                    pointpos=0,       # Position points at the center
-                    orientation='h',  # Horizontal orientation
-                    jitter=0.3,       # Add jitter to points
-                    marker=dict(
-                        color='black',  # Black points
-                        size=4          # Smaller points
-                    ),
-                    line=dict(
-                        color='black',  # Black outline
-                        width=1         # Thin line
-                    ),
-                    fillcolor=color_map[group],         # Violin fill color
-                    opacity=1,                        # Semi-transparent
-                    box_visible=False,                   # Show box plot inside violin
-                    spanmode='hard'                     # Hard boundaries for violin
+                    points='all', pointpos=0, orientation='h', jitter=0.3,
+                    marker=dict(color='black', size=4),
+                    line=dict(color='black', width=1),
+                    fillcolor=color_map[group], opacity=1,
+                    box_visible=False, spanmode='hard'
                 ))
 
-        # Update layout for consistency
+        # Update layout with responsive fonts
         fig.update_layout(
             template="plotly_white",
-            margin=dict(l=50, r=20, t=50, b=50),
-            showlegend=True,
+            margin=dict(l=50, r=20, t=60, b=50), # Adjusted top margin
+            showlegend=expression_hue is not None, # Show legend only if hue is used
             legend=dict(
                 orientation="v",
                 yanchor="top",
                 y=1,
                 xanchor="left",
-                x=1.02,  # Position legend outside the plot area on the right
-                font=dict(size=14),
-                traceorder="reversed"  # Standard order for legend, already reversed by our list order
+                x=1.02,
+                font=dict(size=legend_label_size), # Scaled legend font
+                traceorder="reversed"
             ),
             title={
                 'text': f"Total Gene Expression: {gene_name}",
-                'y':0.97,
+                'y':0.97, # Adjusted y position
                 'x':0.02,
                 'xanchor': 'left',
-                'yanchor': 'middle',
-                'font': {'size': 18, 'weight': 'bold'}
+                'yanchor': 'top', # Anchor to top
+                'font': {'size': title_size, 'weight': 'bold'} # Scaled title font
             },
             xaxis_title=axis_title,
             xaxis=dict(
-                title_font=dict(size=16),
-                tickfont=dict(size=16)  # Increased tick font size
+                title_font=dict(size=axis_label_size), # Scaled axis label
+                tickfont=dict(size=tick_label_size)  # Scaled tick label
             ),
             yaxis=dict(
-                showticklabels=False,  # Hide y-axis labels
-                title=None  # Remove y-axis title
+                showticklabels=False,
+                title=None
             )
         )
-        
+
         return fig
-            
+
     except Exception as e:
         import traceback
         trace = traceback.format_exc()
@@ -378,12 +355,12 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, log_transf
         return go.Figure()
 
 @app.callback(
-    Output("download-svg", "data"),
-    [Input("download-button", "n_clicks")],
-    [State('density-plot', 'figure'),
-     State('gene-level-plot', 'figure'),
-     State('isoform-plot-store', 'data'),
-     State('search-input', 'value')]
+    Output("download-svg-tab2", "data"),
+    [Input("download-button-tab2", "n_clicks")],
+    [State('density-plot-tab2', 'figure'),
+     State('gene-level-plot-tab2', 'figure'),
+     State('isoform-plot-store-tab2', 'data'),
+     State('search-input-tab2', 'value')]
 )
 def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, selected_gene):
     if n_clicks is None or not n_clicks or selected_gene is None:
@@ -533,81 +510,74 @@ def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, se
 
 def layout():
     return dbc.Container([
-        # Download component for the SVG files
-        dcc.Download(id="download-svg"),
+        # Add Download component for the SVG files
+        dcc.Download(id="download-svg-tab2"),
         
-        # Store component for the isoform plot
-        dcc.Store(id="isoform-plot-store"),
+        # Add a Store to hold the isoform plot figure
+        dcc.Store(id="isoform-plot-store-tab2"),
         
-        # Add a hidden div to load the client-side JavaScript
-        html.Div(id="clientside-script-loader", style={"display": "none"}),
+        # Add a hidden gene-plot-container for the callback output
+        html.Div(id="gene-plot-container-tab2", style={"display": "none"}),
         
-        # JavaScript to capture isoform plot figure
-        html.Script(
-            id="clientside-script",
-            children="""
-            if (!window.clientside) {
-                window.clientside = {};
-            }
-            
-            window.clientside.captureIsoformPlot = function(matrixContent) {
-                if (!matrixContent) return null;
-                
-                // Function to find figure in a nested structure
-                function findFigure(obj) {
-                    if (!obj) return null;
-                    
-                    // Check if this is a Dash graph component
-                    if (obj.type === 'Graph' && obj.props && obj.props.figure) {
-                        return obj.props.figure;
-                    }
-                    
-                    // Check if it's a component with children
-                    if (obj.props && obj.props.children) {
-                        let children = obj.props.children;
-                        
-                        // Handle array of children
-                        if (Array.isArray(children)) {
-                            for (let child of children) {
-                                let result = findFigure(child);
-                                if (result) return result;
-                            }
-                        } 
-                        // Handle single child
-                        else {
-                            return findFigure(children);
-                        }
-                    }
-                    
-                    return null;
-                }
-                
-                // Try to find the figure
-                const figure = findFigure(matrixContent);
-                console.log("Clientside result:", figure ? "Found figure" : "No figure found");
-                return figure;
-            };
-            """
-        ),
+        # Add these components that are required by the callback but were missing
+        html.Div([
+            dcc.RangeSlider(
+                id='isoform-range-slider-tab2',
+                min=1,
+                max=10,
+                step=1,
+                value=[1, 5],
+                marks=None,
+                tooltip={"placement": "bottom", "always_visible": True}
+            ),
+            dcc.RadioItems(
+                id='log-transform-option-tab2',
+                options=[
+                    {"label": "Original Values", "value": False},
+                    {"label": "Log Transform (log10(x+1))", "value": True}
+                ],
+                value=False
+            ),
+            # Add this hidden component to satisfy the callback in callbacks.py
+            dcc.Checklist(
+                id='metadata-checklist-tab2',
+                options=[
+                    {"label": "Braak Stage", "value": "braak_tangle_score"},
+                    {"label": "Sex", "value": "sex"},
+                    {"label": "AD Status", "value": "ebbert_ad_status"},
+                    {"label": "APOE Genotype", "value": "apoe"}
+                ],
+                value=['ebbert_ad_status']
+            ),
+            # Add plot-style-option component
+            dcc.RadioItems(
+                id='plot-style-option-tab2',
+                options=[
+                    {"label": "Box Plot", "value": "boxplot"},
+                    {"label": "Violin Plot", "value": "violin"}
+                ],
+                value="boxplot"
+            )
+        ], style={"display": "none"}),  # Hide these components since they're just for the callback
         
         dbc.Card([
             dbc.CardBody([
-                # First row - four columns, with search, dropdown, and visualization options
+                # First row - columns for search, options
                 dbc.Row([
                     dbc.Col([
                         create_section_header("Search Gene:"),
-                        create_gene_search_dropdown()
+                        create_gene_search_dropdown(id="search-input-tab2")
                     ], width=3, id="tab2-search-col"),
                     dbc.Col([
-                        create_section_header("Select a data matrix to analyze:"),
-                        create_matrix_dropdown(dropdown_options, default_table)
+                        create_section_header("Data Matrix:"),
+                        create_matrix_dropdown(dropdown_options, default_table, id="matrix-table-dropdown-tab2")
                     ], width=3, id="tab2-matrix-col"),
                     dbc.Col([
                         create_section_header("Data Transformation:"),
                         create_content_card([
                             html.Div([
                                 create_radio_items(
-                                    id="log-transform-option",
+                                    id="log-transform-option-tab2",
                                     options=[
                                         {"label": "Original Values", "value": False},
                                         {"label": "Log Transform (log10(x+1))", "value": True}
@@ -623,7 +593,7 @@ def layout():
                         create_content_card([
                             html.Div([
                                 create_radio_items(
-                                    id="plot-style-option",
+                                    id="plot-style-option-tab2",
                                     options=[
                                         {"label": "Box Plot", "value": "boxplot"},
                                         {"label": "Violin Plot", "value": "violin"}
@@ -636,7 +606,7 @@ def layout():
                     ], width=3, id="tab2-plot-style-col"),
                 ], className="mb-4 dbc", id="tab2-row1"),
 
-                # Second row - one column for matrix content
+                # Second row - RSID plot
                 dbc.Row([
                     dbc.Col([
                         create_content_card(
@@ -644,14 +614,7 @@ def layout():
                                 html.Div([
                                     # Matrix content div
                                     html.Div(
-                                        id='matrix-content',
-                                        style={
-                                            "width": "100%"
-                                        }
-                                    ),
-                                    # Add gene-plot-container here to ensure it exists in the layout
-                                    html.Div(
-                                        id='gene-plot-container',
+                                        id='matrix-content-tab2',
                                         style={
                                             "background-color": "#ffffff",
                                             "padding": "10px",
@@ -669,28 +632,28 @@ def layout():
                                 spinner_style={"width": "3rem", "height": "3rem"}
                             )
                         )
-                    ], width=12, id="tab2-matrix-content-col")
+                    ], width=12),
                 ], 
                 className="mb-4 dbc",
                 id="tab2-row2",
-                style={"height": "90hv"}
+                style={"height": "90vh"}  # Make the row take up 90% of viewport height
                 ),
 
                 # Third row - three columns
                 dbc.Row([
                     dbc.Col([
-                        create_section_header("Show expression separated by:"),
+                        create_section_header("Show data separated by:"),
                         create_content_card([
                             html.Div([
                                 create_checklist(
-                                    id="metadata-checklist",
+                                    id="metadata-checklist-tab2",
                                     options=[
                                         {"label": "Braak Stage", "value": "braak_tangle_score"},
                                         {"label": "Sex", "value": "sex"},
                                         {"label": "AD Status", "value": "ebbert_ad_status"},
                                         {"label": "APOE Genotype", "value": "apoe"}
                                     ],
-                                    value=["ebbert_ad_status"]
+                                    value=['ebbert_ad_status']
                                 )
                             ])
                         ])
@@ -707,7 +670,7 @@ def layout():
                                     }
                                 ),
                                 dcc.RangeSlider(
-                                    id='isoform-range-slider',
+                                    id='isoform-range-slider-tab2',
                                     min=1,
                                     max=10,
                                     step=1,
@@ -746,7 +709,7 @@ def layout():
                                         html.I(className="fas fa-download me-2"),
                                         "Download SVG"
                                     ],
-                                    id="download-button",
+                                    id="download-button-tab2",
                                     color="primary",
                                     className="w-100 mb-3",
                                     disabled=False
@@ -771,7 +734,7 @@ def layout():
                         create_section_header(""),
                         create_content_card([
                             dcc.Graph(
-                                id='density-plot',
+                                id='density-plot-tab2',
                                 figure=density_fig,
                                 config={
                                     'displayModeBar': True,
@@ -787,7 +750,7 @@ def layout():
                         create_section_header(""),
                         create_content_card([
                             dcc.Graph(
-                                id='gene-level-plot',
+                                id='gene-level-plot-tab2',
                                 config={
                                     'displayModeBar': True,
                                     'scrollZoom': False,
@@ -912,3 +875,273 @@ def update_tab2_responsiveness(dimensions):
         row3_class, metadata_col_width, range_col_width, col3_3_width,
         row4_class, col4_1_width, col4_2_width
     ) 
+
+# Add the main RNApysoforms plot callback
+@app.callback(
+    [Output('matrix-content-tab2', 'children'),
+     Output('isoform-plot-store-tab2', 'data')],
+    [Input('matrix-table-dropdown-tab2', 'value'),
+     Input('search-input-tab2', 'value'),
+     Input('metadata-checklist-tab2', 'value'),
+     Input('log-transform-option-tab2', 'value'),
+     Input('plot-style-option-tab2', 'value'),
+     Input('window-dimensions', 'data'), # Assuming window-dimensions is app-wide
+     Input('isoform-range-slider-tab2', 'value')]
+)
+def update_gene_plot_tab2(selected_table, selected_gene, selected_metadata, log_transform, plot_style, window_dimensions, isoform_range):
+    # Return message if no gene is selected
+    if not selected_gene:
+        return html.Div(
+            html.P("Please select a gene to display data",
+                  style={"color": "#666666", "margin": 0}),
+            style={
+                "height": "100%",
+                "width": "100%",
+                "display": "flex",
+                "justify-content": "center",
+                "align-items": "center",
+                "min-height": "500px",
+                "background-color": "#f8f9fa",
+                "border-radius": "6px"
+            }
+        ), None
+
+    # Default window dimensions if not available yet
+    if not window_dimensions:
+        window_dimensions = {'width': 1200, 'height': 800} # Provide default dimensions
+
+    #Create scaling factor
+    scaling_factor = window_dimensions["width"]/2540
+
+    # Ensure minimum dimensions for usability
+    if window_dimensions["width"] > window_dimensions["height"]:
+        plot_width = window_dimensions['width'] * 0.8
+        plot_height = window_dimensions['height'] * 0.8
+    else:
+        plot_width = window_dimensions['width'] * 0.7
+        plot_height = window_dimensions['height'] * 0.8
+
+    try:
+        # Get gene info
+        gene_info = duck_conn.execute("""
+            SELECT gene_id, gene_name
+            FROM transcript_annotation
+            WHERE gene_id = ?
+            LIMIT 1
+        """, [selected_gene]).fetchone()
+
+        if not gene_info:
+            return html.Div(
+                html.P("Gene not found in the annotation table",
+                      style={"color": "#666666", "margin": 0}),
+                style={
+                    "height": "100%", "width": "100%", "display": "flex",
+                    "justify-content": "center", "align-items": "center",
+                    "min-height": "500px", "background-color": "#f8f9fa", "border-radius": "6px"
+                }
+            ), None
+
+        actual_gene_id, gene_name = gene_info
+
+        # Get data with metadata - remove the limit to get all samples
+        expression = get_gene_data_with_metadata(actual_gene_id, selected_table, with_polars=True, limit=None)
+
+        # Get annotation data for this gene
+        annotation_query = """
+            SELECT *
+            FROM transcript_annotation
+            WHERE gene_id = ?
+        """
+        annotation = duck_conn.execute(annotation_query, [actual_gene_id]).pl()
+
+        # Extract gene annotation details for plot title and subtitle
+        chromosome = annotation["seqnames"][0] if "seqnames" in annotation.columns else "Unknown"
+        strand = annotation["strand"][0] if "strand" in annotation.columns else "?"
+        min_start = annotation["start"].min() if "start" in annotation.columns else "Unknown"
+        max_end = annotation["end"].max() if "end" in annotation.columns else "Unknown"
+
+        #############################################################
+        # Process the annotation data
+        annotation = RNApy.shorten_gaps(annotation)
+
+        # Convert 1-based slider values to 0-based indices for the function
+        # Add 1 to the upper bound to make it inclusive
+        zero_based_range = [isoform_range[0] - 1, isoform_range[1]]
+        expression, annotation = order_transcripts_by_expression(
+            annotation_df=annotation,
+            expression_df=expression,
+            expression_column="cpm_normalized_tmm",
+            top_n=zero_based_range  # Use the converted range
+        )
+
+        # Handle metadata selection for expression_hue
+        if selected_metadata is None or len(selected_metadata) == 0:
+            # No metadata selected, don't use any expression_hue
+            expression_hue = None
+        elif len(selected_metadata) == 1:
+            # If only one metadata column is selected, use it directly
+            expression_hue = selected_metadata[0]
+        else:
+            # If multiple columns are selected, create a combined column using polars methods
+            combined_col_name = "combined_metadata"
+            combined_expr = pl.col(selected_metadata[0]).cast(pl.Utf8)
+            for col_name in selected_metadata[1:]:
+                combined_expr = combined_expr + pl.lit(" | ") + pl.col(col_name).cast(pl.Utf8)
+            expression = expression.with_columns([combined_expr.alias(combined_col_name)])
+            for col_name in selected_metadata: # Filter out nulls AFTER combining
+                 expression = expression.filter(~pl.col(col_name).is_null())
+            expression_hue = combined_col_name
+
+        # Apply log transformation if selected
+        if log_transform:
+            for col_name in ["counts", "cpm_normalized_tmm"]:
+                if col_name in expression.columns:
+                    log_col = f"log_{col_name}"
+                    expression = expression.with_columns([(pl.col(col_name).add(1).log10()).alias(log_col)])
+            expression_columns = ["log_counts", "log_cpm_normalized_tmm", "relative_abundance"]
+        else:
+            expression_columns = ["counts", "cpm_normalized_tmm", "relative_abundance"]
+
+        hue_values = ["protein_coding", "retained_intron", "protein_coding_CDS_not_defined", "nonsense_mediated_decay",
+                              "novel_low_confidence", "novel_high_confidence", "lncRNA", "other"]
+        
+        colormap = {val: color for val, color in zip(hue_values, get_n_colors(len(hue_values), 'Plotly'))}
+
+
+        # Update the trace creation to use the correct columns
+        trace_params = {
+            "annotation": annotation, "expression_matrix": expression,
+            "x_start": "rescaled_start", "x_end": "rescaled_end", "y": "transcript_id",
+            "annotation_hue": "transcript_biotype", "hover_start": "start", "hover_end": "end",
+            "expression_columns": expression_columns, "marker_size": 5*scaling_factor,
+            "arrow_size": 12*scaling_factor, "expression_plot_style": plot_style,
+            "annotation_color_map": colormap
+        }
+
+        ## Create appropriate color palette for the expression_hue
+        if expression_hue is not None:
+            # Ensure expression_hue column exists before trying to access it
+            if expression_hue in expression.columns:
+                 unique_hue_values = expression[expression_hue].unique().sort().to_list()
+                 if len(unique_hue_values) > 0:
+                     custom_colors_list = get_n_colors(len(unique_hue_values), 'Plotly_r')
+                     color_map = {val: color for val, color in zip(unique_hue_values, custom_colors_list)}
+                     trace_params["expression_color_map"] = color_map
+                 trace_params["expression_hue"] = expression_hue
+                 expression = expression.sort(by=expression_hue, descending=True) # Sort AFTER potential filtering
+                 trace_params["expression_matrix"] = expression # Update matrix after sorting
+            else:
+                 # Handle case where combined metadata resulted in no rows or column doesn't exist
+                 expression_hue = None # Reset hue if column isn't valid
+                 trace_params.pop("expression_hue", None) # Remove from params if set
+
+        traces = RNApy.make_traces(**trace_params)
+
+        # Create appropriate subplot titles based on transformation
+        if log_transform:
+            subplot_titles = ["Transcript Structure", "Log Counts", "Log TMM(per million)", "Relative Abundance(%)"]
+        else:
+            subplot_titles = ["Transcript Structure", "Counts", "TMM(per million)", "Relative Abundance(%)"]
+
+        # Use the dynamic dimensions for your plot
+        fig = RNApy.make_plot(traces=traces,
+                    subplot_titles=subplot_titles,
+                    boxgap=0.15, boxgroupgap=0.1, width=plot_width, height=plot_height,
+                    legend_font_size=20*scaling_factor, yaxis_font_size=20*scaling_factor,
+                    xaxis_font_size=20*scaling_factor, subplot_title_font_size=24*scaling_factor,
+                    template="ggplot2", hover_font_size=14*scaling_factor,
+                    legend_title_font_size=20*scaling_factor, column_widths=[0.4, 0.2, 0.2, 0.2])
+
+        # Calculate the expanded x-axis range for the first subplot
+        x_min = annotation["rescaled_start"].min() if "rescaled_start" in annotation.columns else 0
+        x_max = annotation["rescaled_end"].max() if "rescaled_end" in annotation.columns else 1
+        padding = (x_max - x_min) * 0.05
+        new_x_min = x_min - padding
+        new_x_max = x_max + padding
+        fig.update_xaxes(range=[new_x_min, new_x_max], showticklabels=False, showline=False, zeroline=False, ticks="", row=1, col=1)
+        fig.update_xaxes(range=[-0.5, 100.5], tickvals=[0, 20, 40, 60, 80, 100], row=1, col=4)
+
+        # Main title annotation:
+        fig.add_annotation(x=0.5, y=1.16, xref='paper', yref='paper', text=f"{gene_name} ({actual_gene_id})", showarrow=False, xanchor="center", yanchor="top", font=dict(size=26 * scaling_factor))
+        # Subtitle annotation:
+        fig.add_annotation(x=0.5, y=1.11, xref='paper', yref='paper', text=f"Region: chr{chromosome}({strand}):{min_start}-{max_end}", showarrow=False, xanchor="center", yanchor="top", font=dict(size=18 * scaling_factor))
+
+        # Update subplot titles separately
+        for i, annot in enumerate(fig['layout']['annotations']):
+             if i < len(subplot_titles): # Only update the subplot titles
+                if i == 0: annot["x"] = 0
+                elif i == 1: annot["x"] = 0.395
+                elif i == 2: annot["x"] = 0.602
+                else: annot["x"] = 0.812
+                annot["xanchor"] = "left"
+
+
+        return dcc.Graph(
+            figure=fig,
+            style={"height": "100%", "width": "100%", "min-height": "0"},
+            config={"responsive": True, "displayModeBar": True, "scrollZoom": False, "modeBarButtonsToRemove": ["autoScale2d"], "displaylogo": False}
+        ), fig # Return figure for store
+
+    except Exception as e:
+        import traceback
+        trace = traceback.format_exc()
+        column_info = ""
+        try:
+            if 'expression' in locals() and expression is not None: column_info = f"Available columns: {', '.join(expression.columns)}"
+        except: column_info = "Could not retrieve column names"
+        return html.Div([
+            html.P(f"Error creating visualization: {str(e)}", style={"color": "#dc3545"}),
+            html.P(column_info, style={"color": "#dc3545", "font-size": "6.9rem"}),
+            html.Pre(trace, style={"color": "#dc3545", "font-size": "0.8rem"})
+        ]), None
+
+
+# Add the slider update callback
+@app.callback(
+    [Output('isoform-range-slider-tab2', 'max'),
+     Output('isoform-range-slider-tab2', 'marks'),
+     Output('isoform-range-slider-tab2', 'value')],
+    [Input('search-input-tab2', 'value')]
+)
+def update_slider_range_tab2(selected_gene):
+    if not selected_gene:
+        # Default range when no gene is selected
+        marks = {i: str(i) for i in range(1, 11)}
+        return 10, marks, [1, 5]
+
+    try:
+        # Query to get the number of transcripts for this gene
+        transcript_count = duck_conn.execute("""
+            SELECT COUNT(DISTINCT transcript_id)
+            FROM transcript_annotation
+            WHERE gene_id = ?
+        """, [selected_gene]).fetchone()[0]
+
+        if not transcript_count or transcript_count == 0: # Handle case where gene has 0 transcripts
+            # Fallback if no transcripts found
+            marks = {1: '1'} # Min 1 mark
+            return 1, marks, [1, 1]
+
+        # Max value for slider
+        max_val = max(1, transcript_count) # Ensure max is at least 1
+
+        # Create marks for the actual number of transcripts, ensuring reasonable spacing if count is high
+        if transcript_count <= 20:
+             marks = {i: str(i) for i in range(1, transcript_count + 1)}
+        else: # Reduce marks for large numbers
+             step = max(1, transcript_count // 10) # Aim for ~10 marks
+             marks = {i: str(i) for i in range(1, transcript_count + 1, step)}
+             if transcript_count not in marks: # Ensure last value is a mark
+                 marks[transcript_count] = str(transcript_count)
+
+
+        # Default slider value
+        new_value = [1, min(5, max_val)]
+
+        return max_val, marks, new_value
+
+    except Exception as e:
+        print(f"Error updating slider range for gene {selected_gene}: {e}")
+        # Fallback to default values in case of error
+        marks = {i: str(i) for i in range(1, 11)}
+        return 10, marks, [1, 5] 
