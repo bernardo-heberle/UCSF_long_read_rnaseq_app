@@ -11,6 +11,18 @@ import os
 import threading
 import time
 
+# Configure polars to not truncate output in print statements and head() calls
+pl.Config.set_tbl_rows(100)  # Show up to 100 rows
+pl.Config.set_tbl_cols(100)  # Show up to 100 columns
+pl.Config.set_tbl_width_chars(2000)  # Increase width for better display
+pl.Config.set_fmt_str_lengths(100)  # Don't truncate string values
+
+# Configure pandas to not truncate output in print statements and head() calls
+pd.set_option('display.max_rows', 100)  # Show up to 100 rows
+pd.set_option('display.max_columns', 100)  # Show up to 100 columns
+pd.set_option('display.width', 2000)  # Increase width for better display
+pd.set_option('display.max_colwidth', 100)  # Don't truncate string values
+
 # Database connection configuration
 PG_HOST = 'localhost'
 PG_PORT = '5432'
@@ -119,12 +131,10 @@ def _load_gene_index_thread():
         # Set the loading flag
         GENE_INDEX_LOADING = True
         
-        start_time = time.time()
-        
         with pg_engine.connect() as conn:
             query = text("""
-                SELECT DISTINCT gene_id, gene_name 
-                FROM transcript_annotation
+                SELECT DISTINCT gene_id, gene_name, gene_index
+                FROM gene_and_transcript_index_table
                 ORDER BY gene_name
             """)
             all_genes_raw = conn.execute(query).fetchall()
@@ -132,17 +142,15 @@ def _load_gene_index_thread():
             # Store as dictionary for faster lookup
             # Using a dict comprehension to ensure uniqueness by gene_id
             gene_dict = {}
-            for gene_id, gene_name in all_genes_raw:
+            for gene_id, gene_name, gene_index in all_genes_raw:
                 if gene_id not in gene_dict:
-                    gene_dict[gene_id] = gene_name
+                    gene_dict[gene_id] = (gene_name, gene_index)
             
             # Convert to list of tuples for searching
-            ALL_GENES = [(gene_id, gene_name) for gene_id, gene_name in gene_dict.items()]
+            ALL_GENES = [(gene_id, gene_name, gene_index) for gene_id, (gene_name, gene_index) in gene_dict.items()]
             
             GENE_INDEX_LOADED = True
             
-            end_time = time.time()
-            load_time = end_time - start_time
     except Exception as e:
         print(f"Error loading gene index in background: {e}")
         # Set empty list in case of failure
@@ -188,20 +196,20 @@ def _load_gene_index():
         print("Loading gene index synchronously...")
         with pg_engine.connect() as conn:
             query = text("""
-                SELECT DISTINCT gene_id, gene_name 
-                FROM transcript_annotation
+                SELECT DISTINCT gene_id, gene_name, gene_index
+                FROM gene_and_transcript_index_table
                 ORDER BY gene_name
             """)
             all_genes_raw = conn.execute(query).fetchall()
             
             # Store as dictionary for faster lookup
             gene_dict = {}
-            for gene_id, gene_name in all_genes_raw:
+            for gene_id, gene_name, gene_index in all_genes_raw:
                 if gene_id not in gene_dict:
-                    gene_dict[gene_id] = gene_name
+                    gene_dict[gene_id] = (gene_name, gene_index)
             
             # Convert to list of tuples for searching
-            ALL_GENES = [(gene_id, gene_name) for gene_id, gene_name in gene_dict.items()]
+            ALL_GENES = [(gene_id, gene_name, gene_index) for gene_id, (gene_name, gene_index) in gene_dict.items()]
             
             GENE_INDEX_LOADED = True
             print(f"Gene index loaded synchronously: {len(ALL_GENES)} unique genes")
@@ -230,18 +238,15 @@ def get_matrix_tables():
         return []
 
 def get_matrix_dropdown_options():
-    """Get formatted dropdown options for matrix tables."""
-    matrix_tables = get_matrix_tables()
-    
-    # Define the desired order with correct table names
+    """Get formatted dropdown options for different counting methods."""
+    # Define options for different counting methods that will use columns from all_transcript_data
     ordered_options = [
-        {'label': 'Total Counts', 'value': 'total_transcript_data'},
-        {'label': 'Unique Counts', 'value': 'unique_transcript_data'},
-        {'label': 'Full Length Counts', 'value': 'fulllength_transcript_data'}
+        {'label': 'Total Counts', 'value': 'total'},
+        {'label': 'Unique Counts', 'value': 'unique'},
+        {'label': 'Full Length Counts', 'value': 'fullLength'}
     ]
     
-    # Filter options to only include tables that exist in the database
-    return [opt for opt in ordered_options if opt['value'].lower() in [t.lower() for t in matrix_tables]]
+    return ordered_options
 
 def search_genes(search_value, previous_search=None):
     """
@@ -272,19 +277,19 @@ def search_genes(search_value, previous_search=None):
     contains_matches = []
     
     # First pass: categorize matches
-    for gene_id, gene_name in ALL_GENES:
+    for gene_id, gene_name, gene_index in ALL_GENES:
         lower_id = gene_id.lower()
         lower_name = gene_name.lower()
         
         # Exact match (highest priority)
         if lower_id == search_value or lower_name == search_value:
-            exact_matches.append((gene_id, gene_name))
+            exact_matches.append((gene_id, gene_name, gene_index))
         # Prefix match (medium priority)
         elif lower_id.startswith(search_value) or lower_name.startswith(search_value):
-            prefix_matches.append((gene_id, gene_name))
+            prefix_matches.append((gene_id, gene_name, gene_index))
         # Contains match (lowest priority)
         elif search_value in lower_id or search_value in lower_name:
-            contains_matches.append((gene_id, gene_name))
+            contains_matches.append((gene_id, gene_name, gene_index))
             
         # Stop when we have enough matches
         if len(exact_matches) >= 10:
@@ -303,10 +308,10 @@ def search_genes(search_value, previous_search=None):
     
     # Convert to options format
     options = []
-    for gene_id, gene_name in filtered_results[:10]:
+    for gene_id, gene_name, gene_index in filtered_results[:10]:
         options.append({
             'label': f"{gene_name} ({gene_id})",
-            'value': gene_id
+            'value': gene_index
         })
     
     return options
@@ -318,8 +323,8 @@ def _search_genes_database(search_value):
             # For very short searches, just do a prefix match
             if len(search_value) < 3:
                 query = text("""
-                    SELECT DISTINCT gene_id, gene_name
-                    FROM transcript_annotation 
+                    SELECT DISTINCT gene_id, gene_name, gene_index
+                    FROM gene_and_transcript_index_table 
                     WHERE LOWER(gene_id) LIKE :prefix
                     OR LOWER(gene_name) LIKE :prefix
                     LIMIT 10
@@ -332,6 +337,7 @@ def _search_genes_database(search_value):
                         SELECT DISTINCT 
                             gene_id,
                             gene_name,
+                            gene_index,
                             CASE 
                                 WHEN LOWER(gene_id) = :exact THEN 1
                                 WHEN LOWER(gene_name) = :exact THEN 2
@@ -339,13 +345,13 @@ def _search_genes_database(search_value):
                                 WHEN LOWER(gene_name) LIKE :prefix THEN 4
                                 ELSE 5
                             END as match_rank
-                        FROM transcript_annotation 
+                        FROM gene_and_transcript_index_table 
                         WHERE (
                             LOWER(gene_id) LIKE :pattern
                             OR LOWER(gene_name) LIKE :pattern
                         )
                     )
-                    SELECT gene_id, gene_name
+                    SELECT gene_id, gene_name, gene_index
                     FROM ranked_results
                     ORDER BY match_rank, gene_name
                     LIMIT 10
@@ -359,10 +365,10 @@ def _search_genes_database(search_value):
             
             # Convert to options format
             options = []
-            for gene_id, gene_name in result:
+            for gene_id, gene_name, gene_index in result:
                 options.append({
                     'label': f"{gene_name} ({gene_id})",
-                    'value': gene_id
+                    'value': gene_index
                 })
             
             return options
@@ -403,12 +409,12 @@ def get_table_info(table_name):
         raise Exception(f"Error getting table info: {str(e)}")
 
 
-def get_gene_data_with_metadata(gene_id, table_name, with_polars=True, limit=100):
+def get_gene_data_with_metadata(gene_index, with_polars=True, limit=100):
     """
     Get complete data for a specific gene, joined with metadata using SQLAlchemy.
     
     Args:
-        gene_id (str): The gene ID to query
+        gene_index (str): The gene_index to query
         table_name (str): The matrix table name to query
         with_polars (bool): Whether to return a Polars DataFrame (True) or Pandas DataFrame (False)
         limit (int): Maximum number of rows to return (default 100)
@@ -419,107 +425,66 @@ def get_gene_data_with_metadata(gene_id, table_name, with_polars=True, limit=100
     Raises:
         Exception: If there's an error in the query or if the gene is not found
     """
+    
     # Create a cache key for this specific query
-    cache_key = f"{gene_id}_{table_name}_{limit}_{with_polars}"
+    cache_key = f"{gene_index}_all_transcript_data_{limit}_{with_polars}"
     
     # Check if we have this cached already
     if cache_key in MATRIX_DATA_CACHE:
         cached_data = MATRIX_DATA_CACHE[cache_key]
         return cached_data
     
-    try:
-        with pg_engine.connect() as conn:
-            # Check if gene exists (use cache if possible)
-            if gene_id in GENE_INFO_CACHE:
-                gene_result = GENE_INFO_CACHE[gene_id]
-            else:
-                gene_query = text("""
-                    SELECT gene_id, gene_name 
-                    FROM transcript_annotation 
-                    WHERE gene_id = :gene_id
-                    LIMIT 1
-                """)
-                gene_result = conn.execute(gene_query, {"gene_id": gene_id}).fetchone()
-                
-                if gene_result:
-                    GENE_INFO_CACHE[gene_id] = gene_result
-            
-            if not gene_result:
-                raise Exception(f"Gene ID '{gene_id}' not found in annotation table")
-            
-            # First get the column names from both tables
-            gene_cols_query = text(f"""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = :table_name
-                ORDER BY ordinal_position
-            """)
-            gene_cols = [row[0] for row in conn.execute(gene_cols_query, {"table_name": table_name}).fetchall()]
-            
-            meta_cols_query = text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'metadata'
-                ORDER BY ordinal_position
-            """)
-            meta_cols = [row[0] for row in conn.execute(meta_cols_query).fetchall()]
-            
-            # Build the query with explicit column selection and proper quoting
-            def quote_column(col):
-                # Quote column names that contain special characters
-                if any(c in col for c in ['%', '-', '&', '(', ')', ' ']):
-                    return f'"m"."{col}"'
-                return f"m.{col}"
-            
-            gene_cols_str = ", ".join(f"g.{col}" for col in gene_cols)
-            meta_cols_str = ", ".join(quote_column(col) for col in meta_cols if col != 'sample_and_flowcell_id')
-            
-            query = f"""
-                SELECT 
-                    {gene_cols_str},
-                    {meta_cols_str}
-                FROM {table_name} g
-                LEFT JOIN metadata m ON g.sample_id = m.sample_and_flowcell_id
-                WHERE g.gene_id = :gene_id
-                LIMIT :limit
-            """
-            
-            # Read directly to pandas
-            df = pd.read_sql(text(query), conn, params={"gene_id": gene_id, "limit": limit})
-            
-            # Convert to polars if requested
-            if with_polars and POLARS_AVAILABLE:
-                df = pl.from_pandas(df)
-            
-            # Cache the result
-            MATRIX_DATA_CACHE[cache_key] = df
-            return df
-                
-    except Exception as e:
-        # If the join query fails, try just the gene data without metadata
-        try:
-            print(f"Error getting gene data with metadata: {e}")
-            print(f"Trying fallback query without join")
-            
-            with pg_engine.connect() as conn:
-                fallback_query = text(f"""
-                    SELECT * 
-                    FROM {table_name}
-                    WHERE gene_id = :gene_id
-                    LIMIT :limit
-                """)
-                
-                df = pd.read_sql(fallback_query, conn, params={"gene_id": gene_id, "limit": limit})
-                
-                if with_polars and POLARS_AVAILABLE:
-                    df = pl.from_pandas(df)
-                
-                MATRIX_DATA_CACHE[cache_key] = df
-                return df
-                    
-        except Exception as fallback_error:
-            raise Exception(f"Error getting gene data: Original error: {str(e)}, Fallback error: {str(fallback_error)}")
+    with pg_engine.connect() as conn:
+        # Check if table exists
+        table_exists_query = text("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'all_transcript_data'
+            )
+        """)
+        table_exists = conn.execute(table_exists_query, {"table_name": "all_transcript_data"}).scalar()
         
+        if not table_exists:
+            raise Exception(f"Table 'all_transcript_data' does not exist in the database")
+        
+        # Check if gene exists (use cache if possible)
+        if gene_index in GENE_INFO_CACHE:
+            gene_result = GENE_INFO_CACHE[gene_index]
+        else:
+            gene_query = text("""
+                SELECT gene_index
+                FROM gene_and_transcript_index_table 
+                WHERE gene_index = :gene_index
+                LIMIT 1
+            """)
+            gene_result = conn.execute(gene_query, {"gene_index": gene_index}).fetchone()
+            
+            if gene_result:
+                GENE_INFO_CACHE[gene_index] = gene_result
+        
+        if not gene_result:
+            raise Exception(f"Gene ID '{gene_index}' not found in annotation table")           
+        
+        ## Make the query
+        query = f"""
+        SELECT *
+        FROM all_transcript_data AS at
+        JOIN metadata      AS m
+        USING (sample_id)
+        WHERE gene_index = :gene_index
+        """ 
+
+        # Read directly to pandas
+        df = pd.read_sql(text(query), conn, params={"gene_index": gene_index, "limit": limit})
+
+        # Convert to polars if requested
+        if with_polars and POLARS_AVAILABLE:
+            df = pl.from_pandas(df)
+        
+        # Cache the result
+        MATRIX_DATA_CACHE[cache_key] = df
+        
+        return df
 
 def clear_cache():
     """Clear all cached data"""
@@ -547,12 +512,12 @@ def cleanup():
     if pg_engine:
         pg_engine.dispose()
 
-def get_gene_density_data(gene_id):
+def get_gene_density_data(gene_index):
     """
     Get gene expression data from the density plot table.
     
     Args:
-        gene_id (str): The gene ID to query
+        gene_index (str): The gene_index to query
         
     Returns:
         tuple: (log10(mean_cpm_normalized_tmm), expression_percentile) or (None, None) if gene not found
@@ -562,10 +527,10 @@ def get_gene_density_data(gene_id):
             query = text("""
                 SELECT "log10(mean_cpm_normalized_tmm)", expression_percentile 
                 FROM gene_level_data_for_density_plot
-                WHERE gene_id = :gene_id
+                WHERE gene_index = :gene_index
                 LIMIT 1
             """)
-            result = conn.execute(query, {"gene_id": gene_id}).fetchone()
+            result = conn.execute(query, {"gene_index": gene_index}).fetchone()
             
             if result:
                 return result[0], result[1]
@@ -575,12 +540,12 @@ def get_gene_density_data(gene_id):
         print(f"Error getting gene density data: {e}")
         return None, None
 
-def get_total_gene_data_with_metadata(gene_id, with_polars=True, limit=None):
+def get_total_gene_data_with_metadata(gene_index, with_polars=True, limit=None):
     """
     Get complete data for a specific gene from total_gene_data table, joined with metadata.
     
     Args:
-        gene_id (str): The gene ID to query
+        gene_index (str): The gene_index to query
         with_polars (bool): Whether to return a Polars DataFrame (True) or Pandas DataFrame (False)
         limit (int): Maximum number of rows to return (default None)
     
@@ -591,167 +556,54 @@ def get_total_gene_data_with_metadata(gene_id, with_polars=True, limit=None):
         Exception: If there's an error in the query or if the gene is not found
     """
     # Create a cache key for this specific query
-    cache_key = f"total_{gene_id}_{limit}_{with_polars}"
+    cache_key = f"total_{gene_index}_{limit}_{with_polars}"
     
     # Check if we have this cached already
     if cache_key in MATRIX_DATA_CACHE:
         cached_data = MATRIX_DATA_CACHE[cache_key]
         return cached_data
-    
-    try:
-        with pg_engine.connect() as conn:
-            # Check if gene exists (use cache if possible)
-            if gene_id in GENE_INFO_CACHE:
-                gene_result = GENE_INFO_CACHE[gene_id]
-            else:
-                gene_query = text("""
-                    SELECT gene_id, gene_name 
-                    FROM transcript_annotation 
-                    WHERE gene_id = :gene_id
-                    LIMIT 1
-                """)
-                gene_result = conn.execute(gene_query, {"gene_id": gene_id}).fetchone()
-                
-                if gene_result:
-                    GENE_INFO_CACHE[gene_id] = gene_result
-            
-            if not gene_result:
-                raise Exception(f"Gene ID '{gene_id}' not found in annotation table")
-            
-            # First get the column names from both tables
-            gene_cols_query = text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'total_gene_data'
-                ORDER BY ordinal_position
-            """)
-            gene_cols = [row[0] for row in conn.execute(gene_cols_query).fetchall()]
-            
-            meta_cols_query = text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'metadata'
-                ORDER BY ordinal_position
-            """)
-            meta_cols = [row[0] for row in conn.execute(meta_cols_query).fetchall()]
-            
-            # Build the query with explicit column selection and proper quoting
-            def quote_column(col):
-                # Quote column names that contain special characters
-                if any(c in col for c in ['%', '-', '&', '(', ')', ' ']):
-                    return f'"m"."{col}"'
-                return f"m.{col}"
-            
-            gene_cols_str = ", ".join(f"g.{col}" for col in gene_cols)
-            meta_cols_str = ", ".join(quote_column(col) for col in meta_cols if col != 'sample_and_flowcell_id')
-            
-            # Build the base query
-            query = f"""
-                SELECT 
-                    {gene_cols_str},
-                    {meta_cols_str}
-                FROM total_gene_data g
-                LEFT JOIN metadata m ON g.sample_id = m.sample_and_flowcell_id
-                WHERE g.gene_id = :gene_id
-            """
-            
-            # Add limit if specified
-            if limit is not None:
-                query += " LIMIT :limit"
-                params = {"gene_id": gene_id, "limit": limit}
-            else:
-                params = {"gene_id": gene_id}
-            
-            # Read directly to pandas
-            df = pd.read_sql(text(query), conn, params=params)
-            
-            # Convert to polars if requested
-            if with_polars and POLARS_AVAILABLE:
-                df = pl.from_pandas(df)
-            
-            # Cache the result
-            MATRIX_DATA_CACHE[cache_key] = df
-            return df
-                
-    except Exception as e:
-        # If the join query fails, try just the gene data without metadata
-        try:
-            print(f"Error getting total gene data with metadata: {e}")
-            print(f"Trying fallback query without join")
-            
-            with pg_engine.connect() as conn:
-                # Build the fallback query
-                fallback_query = """
-                    SELECT * 
-                    FROM total_gene_data
-                    WHERE gene_id = :gene_id
-                """
-                if limit is not None:
-                    fallback_query += " LIMIT :limit"
-                    params = {"gene_id": gene_id, "limit": limit}
-                else:
-                    params = {"gene_id": gene_id}
-                
-                df = pd.read_sql(text(fallback_query), conn, params=params)
-                
-                if with_polars and POLARS_AVAILABLE:
-                    df = pl.from_pandas(df)
-                
-                MATRIX_DATA_CACHE[cache_key] = df
-                return df
-                    
-        except Exception as fallback_error:
-            raise Exception(f"Error getting total gene data: Original error: {str(e)}, Fallback error: {str(fallback_error)}")
 
-def _load_rsid_index_thread():
-    """Load RSIDs from database into memory in a background thread."""
-    global ALL_RSIDS, RSID_INDEX_LOADING, RSID_INDEX_LOADED, RSID_TRIE, SORTED_RSIDS
-    
-    try:
-        print("Starting background RSID index loading...")
-        RSID_INDEX_LOADING = True
-        RSID_INDEX_LOADED = False
-        
-        print("Querying database for unique RSIDs...")
-        with pg_engine.connect() as conn:
-            query = text("""
-                SELECT DISTINCT rsid
-                FROM rsids
-                WHERE rsid IS NOT NULL
-                ORDER BY rsid
+
+    with pg_engine.connect() as conn:
+        # Check if gene exists (use cache if possible)
+        if gene_index in GENE_INFO_CACHE:
+            gene_result = GENE_INFO_CACHE[gene_index]
+        else:
+            gene_query = text("""
+                SELECT gene_index
+                FROM gene_and_transcript_index_table 
+                WHERE gene_index = :gene_index
+                LIMIT 1
             """)
+            gene_result = conn.execute(gene_query, {"gene_index": gene_index}).fetchone()
             
-            result = conn.execute(query).fetchall()
-            
-            # Process results in chunks
-            chunk_size = 100000
-            total_rsids = len(result)
-            processed = 0
-            
-            print(f"Found {total_rsids} unique RSIDs")
-            
-            # Convert to dictionary and build trie
-            ALL_RSIDS = {}
-            SORTED_RSIDS = []
-            for row in result:
-                rsid = row[0]
-                rsid_lower = rsid.lower()
-                ALL_RSIDS[rsid_lower] = rsid
-                RSID_TRIE.insert(rsid_lower, rsid)
-                SORTED_RSIDS.append(rsid_lower)
-                processed += 1
-                
-                if processed % 500000 == 0:
-                    print(f"Processed {processed}/{total_rsids} RSIDs ({(processed/total_rsids)*100:.1f}%)")
-            
-            print("RSID index loading complete")
-            RSID_INDEX_LOADED = True
-            
-    except Exception as e:
-        print(f"Error loading RSID index in background: {e}")
-        RSID_INDEX_LOADED = False
-    finally:
-        RSID_INDEX_LOADING = False
+            if gene_result:
+                GENE_INFO_CACHE[gene_index] = gene_result
+        
+        if not gene_result:
+            raise Exception(f"Gene ID '{gene_index}' not found in annotation table")
+        
+        
+        ## Make the query
+        query = f"""
+        SELECT *
+        FROM total_gene_data AS tg
+        JOIN metadata      AS m
+        USING (sample_id)
+        WHERE gene_index = :gene_index
+        """ 
+
+        # Read directly to pandas
+        df = pd.read_sql(text(query), conn, params={"gene_index": gene_index, "limit": limit})
+     
+        # Convert to polars if requested
+        if with_polars and POLARS_AVAILABLE:
+            df = pl.from_pandas(df)
+        
+        # Cache the result
+        MATRIX_DATA_CACHE[cache_key] = df
+        return df
+
 
 def binary_search_prefix(prefix, max_results=10):
     """Binary search for prefix matches in sorted RSIDs list."""
@@ -853,119 +705,100 @@ def _search_rsids_database(search_value):
             # Optimized query using index hints
             query = text("""
                 WITH rsid_matches AS (
-                    SELECT DISTINCT rsid
-                    FROM rsids 
+                    SELECT rsid, rsid_index
+                    FROM rsid_index_table
                     WHERE rsid IS NOT NULL
-                    AND LOWER(rsid) LIKE :prefix
+                    AND LOWER(rsid) LIKE :prefix || '%'
                 )
-                SELECT rsid
+                SELECT rsid, rsid_index
                 FROM rsid_matches
                 ORDER BY rsid
                 LIMIT 10
             """)
             
-            result = conn.execute(query, {
-                "prefix": f"{search_value.lower()}%"
-            }).fetchall()
-            
-            # Convert to options format
-            options = []
-            for row in result:
-                rsid = row[0]
-                options.append({
-                    'label': rsid,
-                    'value': rsid
-                })
-            
-            return options
+            # Execute query with parameter binding
+            result = conn.execute(query, {"prefix": search_value.lower()})
+            return [{"label": row[0], "value": row[1]} for row in result]
     except Exception as e:
         print(f"Error in RSID database search: {e}")
         return []
 
-def get_rsid_data(rsid, with_polars=True):
+def get_rsid_data(rsid_index, with_polars=True):
     """
-    Get data for a specific RSID from the genotyping table.
-    
+    Get data for a specific RSID from the genotyping table, joined with metadata tables.
+
     Args:
-        rsid (str): The RSID to query
+        rsid_index (str): The rsid_index to query
         with_polars (bool): Whether to return a Polars DataFrame (True) or Pandas DataFrame (False)
-    
+
     Returns:
-        DataFrame: Either a Polars or Pandas DataFrame containing the genotyping data
-        
+        DataFrame: Either a Polars or Pandas DataFrame containing the joined genotyping data
+
     Raises:
-        Exception: If there's an error in the query or if the RSID is not found
+        Exception: If there's an error in the query or if the RSID index is not found
     """
-    # Return empty DataFrame if rsid is None
-    if rsid is None:
+    # Return empty DataFrame if rsid_index is None
+    if rsid_index is None:
         if with_polars and POLARS_AVAILABLE:
             return pl.DataFrame()
         return pd.DataFrame()
-    
+
     # Create a cache key for this specific query
-    cache_key = f"rsid_{rsid}_{with_polars}"
-    
+    cache_key = f"rsid_{rsid_index}_{with_polars}"
+
     # Check if we have this cached already
     if cache_key in MATRIX_DATA_CACHE:
         cached_data = MATRIX_DATA_CACHE[cache_key]
         return cached_data
-    
+
     try:
         with pg_engine.connect() as conn:
-            # First get the column names from the genotyping table
-            cols_query = text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'genotyping'
-                ORDER BY ordinal_position
+            # Build the main query with joins - filter first then join
+            query = text("""
+                WITH filtered_genotyping AS (
+                    SELECT sample_id, genotype_index, rsid_index
+                    FROM genotyping
+                    WHERE rsid_index = :rsid_index
+                )
+                SELECT
+                    g.sample_id,
+                    ri.rsid,
+                    gi.genotype
+                    -- Add other columns from genotyping table if needed, e.g., g.some_other_column
+                FROM filtered_genotyping g
+                JOIN rsid_index_table ri ON g.rsid_index = ri.rsid_index
+                JOIN genotype_index_table gi ON g.genotype_index = gi.genotype_index
             """)
-            cols = [row[0] for row in conn.execute(cols_query).fetchall()]
-            
-            # Build the query with explicit column selection
-            cols_str = ", ".join(cols)
-            
-            query = text(f"""
-                SELECT {cols_str}
-                FROM genotyping
-                WHERE rsid = :rsid
-            """)
-            
+
             # Read directly to pandas
-            df = pd.read_sql(query, conn, params={"rsid": rsid})
-            
+            df = pd.read_sql(query, conn, params={"rsid_index": rsid_index})
+
             if df.empty:
-                raise Exception(f"RSID '{rsid}' not found in genotyping table")
-            
+                # Check if the rsid_index actually exists in the index table
+                check_query = text("SELECT 1 FROM rsid_index_table WHERE rsid_index = :rsid_index LIMIT 1")
+                exists = conn.execute(check_query, {"rsid_index": rsid_index}).scalar()
+                if exists:
+                    # If the index exists but no data, return empty DataFrame (maybe log a warning)
+                    print(f"Warning: rsid_index '{rsid_index}' found in index table but has no data in genotyping table.")
+                    if with_polars and POLARS_AVAILABLE:
+                        df = pl.DataFrame({'sample_id': [], 'rsid': [], 'genotype': []})
+                    else:
+                        df = pd.DataFrame({'sample_id': [], 'rsid': [], 'genotype': []})
+
+                else:
+                     raise Exception(f"rsid_index '{rsid_index}' not found in rsid_index_table")
+
+
             # Convert to polars if requested
             if with_polars and POLARS_AVAILABLE:
                 df = pl.from_pandas(df)
-            
+
             # Cache the result
             MATRIX_DATA_CACHE[cache_key] = df
             return df
-                
+
     except Exception as e:
-        print(f"Error getting RSID data: {e}")
-        # Try a fallback query with just the basic columns
-        try:
-            with pg_engine.connect() as conn:
-                fallback_query = text("""
-                    SELECT rsid, sample_and_flowcell_id, genotype
-                    FROM genotyping
-                    WHERE rsid = :rsid
-                """)
-                
-                df = pd.read_sql(fallback_query, conn, params={"rsid": rsid})
-                
-                if df.empty:
-                    raise Exception(f"RSID '{rsid}' not found in genotyping table")
-                
-                if with_polars and POLARS_AVAILABLE:
-                    df = pl.from_pandas(df)
-                
-                # Cache the fallback result
-                MATRIX_DATA_CACHE[cache_key] = df
-                return df
-                    
-        except Exception as fallback_error:
-            raise Exception(f"Error getting RSID data: Original error: {str(e)}, Fallback error: {str(fallback_error)}")
+        print(f"Error getting RSID data for rsid_index {rsid_index}: {e}")
+        # Fallback is less useful here as the primary issue might be joins or missing index
+        # Reraise the exception for better debugging
+        raise Exception(f"Error processing rsid_index '{rsid_index}': {str(e)}")

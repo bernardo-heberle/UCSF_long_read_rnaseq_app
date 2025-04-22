@@ -149,18 +149,19 @@ def update_gene_search_options_tab4(search_value, selected_value):
             # First get the full gene details from the database
             try:
                 gene_result = duck_conn.execute("""
-                    SELECT gene_id, gene_name 
-                    FROM transcript_annotation 
-                    WHERE gene_id = ?
+                    SELECT gene_index, gene_id, gene_name 
+                    FROM gene_and_transcript_index_table 
+                    WHERE gene_index = ?
+                    GROUP BY gene_index, gene_id, gene_name
                     LIMIT 1
                 """, [selected_value]).fetchone()
                 
                 if gene_result:
                     # Add this gene to the options
-                    gene_id, gene_name = gene_result
+                    gene_index, gene_id, gene_name = gene_result
                     option = {
                         'label': f"{gene_name} ({gene_id})",
-                        'value': gene_id
+                        'value': gene_index
                     }
                     last_valid_gene_options = [option]  # Just show the current selection
             except Exception as e:
@@ -285,7 +286,7 @@ def update_density_plot(selected_gene, options, window_dimensions):
      Input('window-dimensions', 'data'),
      Input('isoform-range-slider', 'value')]
 )
-def update_rsid_genotype_plot(selected_rsid, selected_table, selected_gene, selected_metadata, log_transform, plot_style, window_dimensions, isoform_range):
+def update_rsid_genotype_plot(selected_rsid, count_type, selected_gene, selected_metadata, log_transform, plot_style, window_dimensions, isoform_range):
     if not selected_rsid or not selected_gene:
         # Return an empty figure wrapped in dcc.Graph component with tab2-like styling
         return html.Div(
@@ -317,16 +318,16 @@ def update_rsid_genotype_plot(selected_rsid, selected_table, selected_gene, sele
     try:
         # Get the RSID data
         df_rsid = get_rsid_data(selected_rsid, with_polars=True)
-        df_rsid = df_rsid.rename({"sample_and_flowcell_id": "sample_id"})
         
         # Set default genotype column name
         genotype_column = "genotype"
 
         # Get gene info
         gene_info = duck_conn.execute("""
-            SELECT gene_id, gene_name 
-            FROM transcript_annotation 
-            WHERE gene_id = ?
+            SELECT gene_index, gene_id, gene_name 
+            FROM gene_and_transcript_index_table 
+            WHERE gene_index = ?
+            GROUP BY gene_index, gene_id, gene_name
             LIMIT 1
         """, [selected_gene]).fetchone()
         
@@ -347,23 +348,62 @@ def update_rsid_genotype_plot(selected_rsid, selected_table, selected_gene, sele
                 }
             ), None
         
-        actual_gene_id, gene_name = gene_info
+        gene_index, actual_gene_id, gene_name = gene_info
         
-        # Get data with metadata - remove the limit to get all samples
-        expression = get_gene_data_with_metadata(actual_gene_id, selected_table, with_polars=True, limit=None)
+        # Get data with metadata
+        expression = get_gene_data_with_metadata(gene_index, with_polars=True, limit=None)
 
-        ## Join expression data with RSID data
-        df = df_rsid.join(expression, on="sample_id", how="left")
+        print(len(df_rsid["sample_id"].unique().to_list()))
+        print(df_rsid["sample_id"].unique())
+        print(expression["sample_id"].unique())
+        print(len(expression["sample_id"].unique().to_list()))
 
-        # Get annotation data for this gene
+        if expression is None or len(expression) == 0:
+            return go.Figure(), None
+
+        # Get annotation data
         annotation_query = """
-            SELECT * 
-            FROM transcript_annotation 
-            WHERE gene_id = ?
+        SELECT a.*, g.gene_id, g.gene_name, g.transcript_id, g.seqnames 
+        FROM gene_and_transcript_index_table g
+        JOIN transcript_annotation a ON a.gene_index = g.gene_index AND a.transcript_index = g.transcript_index
+        WHERE g.gene_index = ?
         """
-        annotation = duck_conn.execute(annotation_query, [actual_gene_id]).pl()
+        annotation = duck_conn.execute(annotation_query, [gene_index]).pl()
 
-        # Extract gene annotation details for plot title and subtitle        # Extract gene annotation details for plot title and subtitle
+        expression = expression.join(annotation.select(["transcript_index", "transcript_id", "gene_id", "gene_name"]).unique(), 
+                                on="transcript_index", how="inner")
+        
+
+        ## Drop indexes
+        expression = expression.drop(["transcript_index", "gene_index"])
+        annotation = annotation.drop(["transcript_index", "gene_index"])
+
+        # First convert strand to integer type to ensure consistent comparisons
+        annotation = annotation.with_columns(pl.col("strand").cast(pl.Utf8).alias("strand"))
+        
+        # Then convert the integer values to string symbols
+        annotation = annotation.with_columns(
+            pl.when(pl.col("strand") == "-1").then(pl.lit("-"))
+              .when(pl.col("strand") == "1").then(pl.lit("+"))
+              .otherwise(pl.col("strand").cast(pl.Utf8))
+              .alias("strand")
+        )
+
+
+        # Select the correct columns based on count_type
+        tmm_col = f"{count_type}_cpm_normalized_tmm"
+        abundance_col = f"{count_type}_relative_abundance"
+        count_col = f"{count_type}_counts"
+
+        # Ensure sample_id is int64 in both dataframes before joining
+        df_rsid = df_rsid.with_columns(pl.col("sample_id").cast(pl.Int64))
+        expression = expression.with_columns(pl.col("sample_id").cast(pl.Int64))
+        df_rsid = df_rsid.join(expression, on="sample_id", how="inner")
+
+        
+        if annotation is None or len(annotation) == 0:
+            return go.Figure(), None
+
         chromosome = annotation["seqnames"][0] if "seqnames" in annotation.columns else "Unknown"
         strand = annotation["strand"][0] if "strand" in annotation.columns else "?"
         min_start = annotation["start"].min() if "start" in annotation.columns else "Unknown"
@@ -373,15 +413,14 @@ def update_rsid_genotype_plot(selected_rsid, selected_table, selected_gene, sele
         # Process the annotation data
         annotation = RNApy.shorten_gaps(annotation)
 
-
         # Convert 1-based slider values to 0-based indices for the function
         # Add 1 to the upper bound to make it inclusive
         zero_based_range = [isoform_range[0] - 1, isoform_range[1]]
         # Use df (the joined dataframe) instead of expression
         df, annotation = order_transcripts_by_expression(
             annotation_df=annotation, 
-            expression_df=df, 
-            expression_column="cpm_normalized_tmm",
+            expression_df=df_rsid, 
+            expression_column=tmm_col,
             top_n=zero_based_range  # Use the converted range
         )
         
@@ -419,7 +458,7 @@ def update_rsid_genotype_plot(selected_rsid, selected_table, selected_gene, sele
         if log_transform:
             # Create copies of the data columns with log transform
             # We need to add 1 to avoid log(0) issues
-            for col in ["counts", "cpm_normalized_tmm"]:
+            for col in [count_col, tmm_col]:
                 if col in df.columns:
                     import numpy as np
                     # Create a new column with log transform
@@ -429,10 +468,10 @@ def update_rsid_genotype_plot(selected_rsid, selected_table, selected_gene, sele
                     ])
             
             # Use the log-transformed columns in the plot
-            expression_columns = ["log_counts", "log_cpm_normalized_tmm", "relative_abundance"]
+            expression_columns = [f"log_{count_col}", f"log_{tmm_col}", abundance_col]
         else:
             # Use original columns
-            expression_columns = ["counts", "cpm_normalized_tmm", "relative_abundance"]
+            expression_columns = [count_col, tmm_col, abundance_col]
         
         # Define annotation colormap (consistent with tab2)
         annotation_hue_values = ["protein_coding", "retained_intron", "protein_coding_CDS_not_defined", "nonsense_mediated_decay",
@@ -473,12 +512,16 @@ def update_rsid_genotype_plot(selected_rsid, selected_table, selected_gene, sele
             trace_params["expression_matrix"] = df
 
         traces = RNApy.make_traces(**trace_params)
+
+        # Get proper display names for the count type
+        count_type_display = {"total": "Total", "unique": "Unique", "fullLength": "Full Length"}
+        count_type_name = count_type_display.get(count_type, count_type.capitalize())
         
         # Create appropriate subplot titles based on transformation
         if log_transform:
-            subplot_titles = ["Transcript Structure", "Log Counts", "Log TMM(per million)", "Relative Abundance(%)"]
+            subplot_titles = ["Transcript Structure", f"Log {count_type_name} Counts", f"Log TMM(per million)", "Relative Abundance(%)"]
         else:
-            subplot_titles = ["Transcript Structure", "Counts", "TMM(per million)", "Relative Abundance(%)"]
+            subplot_titles = ["Transcript Structure", f"{count_type_name} Counts", "TMM(per million)", "Relative Abundance(%)"]
                 
         # Use the dynamic dimensions for your plot
         fig = RNApy.make_plot(traces=traces, 
@@ -651,10 +694,11 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, log_transf
         if df_rsid.is_empty():
             return go.Figure()
 
-        df_rsid = df_rsid.rename({"sample_and_flowcell_id": "sample_id"})
-
         # Get the gene's data
         df = get_total_gene_data_with_metadata(selected_gene, with_polars=True)
+        # Ensure sample_id is int64 in both dataframes before joining
+        df = df.with_columns(pl.col("sample_id").cast(pl.Int64))
+        df_rsid = df_rsid.with_columns(pl.col("sample_id").cast(pl.Int64))
         df = df.join(df_rsid, on="sample_id", how="left")
 
         if df is None or len(df) == 0:
@@ -811,13 +855,13 @@ def download_plots_as_svg_tab4(n_clicks, density_fig, gene_level_fig, genotype_f
     try:
         # Get the gene name for the filename
         gene_info = duck_conn.execute("""
-            SELECT gene_id, gene_name 
-            FROM transcript_annotation 
-            WHERE gene_id = ?
+            SELECT gene_index, gene_id, gene_name 
+            FROM gene_and_transcript_index_table 
+            WHERE gene_index = ?
             LIMIT 1
         """, [selected_gene]).fetchone()
         
-        gene_name = gene_info[1] if gene_info else selected_gene
+        gene_name = gene_info[2] if gene_info else selected_gene
         
         # Create a temporary directory for our files
         temp_dir = tempfile.mkdtemp()
@@ -1154,7 +1198,7 @@ def layout():
                                     disabled=False
                                 ),
                                 html.Small(
-                                    "Generates high-quality vector graphics for publications",
+                                    "Takes a while to generate plots",
                                     style={
                                         "color": "#666666",
                                         "display": "block",
@@ -1339,8 +1383,8 @@ def update_slider_range_tab4(selected_gene):
         # Query to get the number of transcripts for this gene
         transcript_count = duck_conn.execute("""
             SELECT COUNT(DISTINCT transcript_id)
-            FROM transcript_annotation
-            WHERE gene_id = ?
+            FROM gene_and_transcript_index_table
+            WHERE gene_index = ?
         """, [selected_gene]).fetchone()[0]
 
         if not transcript_count or transcript_count == 0: # Handle case where gene has 0 transcripts

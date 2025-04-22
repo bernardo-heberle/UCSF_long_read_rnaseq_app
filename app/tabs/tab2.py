@@ -26,6 +26,14 @@ import kaleido
 import json
 import RNApysoforms as RNApy
 
+
+# Configure polars to not truncate output in print statements and head() calls
+pl.Config.set_tbl_rows(100)  # Show up to 100 rows
+pl.Config.set_tbl_cols(100)  # Show up to 100 columns
+pl.Config.set_tbl_width_chars(2000)  # Increase width for better display
+pl.Config.set_fmt_str_lengths(100)  # Don't truncate string values
+
+
 # Get the dropdown options
 dropdown_options = get_matrix_dropdown_options()
 default_table = dropdown_options[0]['value'] if dropdown_options else None
@@ -166,18 +174,19 @@ def update_search_options(search_value, selected_value):
             # First get the full gene details from the database
             try:
                 gene_result = duck_conn.execute("""
-                    SELECT gene_id, gene_name 
-                    FROM transcript_annotation 
-                    WHERE gene_id = ?
+                    SELECT gene_index, gene_name, gene_id
+                    FROM gene_and_transcript_index_table 
+                    WHERE gene_index = ?
+                    GROUP BY gene_index, gene_name, gene_id
                     LIMIT 1
                 """, [selected_value]).fetchone()
                 
                 if gene_result:
                     # Add this gene to the options
-                    gene_id, gene_name = gene_result
+                    gene_index, gene_name, gene_id = gene_result
                     option = {
                         'label': f"{gene_name} ({gene_id})",
-                        'value': gene_id
+                        'value': gene_index
                     }
                     last_valid_options = [option]  # Just show the current selection
             except Exception as e:
@@ -212,11 +221,15 @@ def update_search_options(search_value, selected_value):
      Input('metadata-checklist-tab2', 'value'),
      Input('log-transform-option-tab2', 'value'),
      Input('plot-style-option-tab2', 'value'),
+     Input('matrix-table-dropdown-tab2', 'value'),  # Add matrix table dropdown
      Input('window-dimensions', 'data')]
 )
-def update_gene_level_plot(selected_gene, options, selected_metadata, log_transform, plot_style, window_dimensions):
+def update_gene_level_plot(selected_gene, options, selected_metadata, log_transform, plot_style, count_type, window_dimensions):
     if not selected_gene:
         return go.Figure()
+
+    # If no count type is selected, use total counts by default
+    count_type = count_type if count_type else 'total'
 
     # Default window dimensions if not available yet
     if not window_dimensions:
@@ -243,8 +256,23 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, log_transf
         # Get the gene's data
         df = get_total_gene_data_with_metadata(selected_gene, with_polars=True)
 
+
         if df is None or len(df) == 0:
             return go.Figure()
+
+        # Use the selected count type's columns
+        tmm_col = f"cpm_normalized_tmm"
+        # Check if the column exists
+        if tmm_col not in df.columns:
+            # Return an empty figure with an error message
+            fig = go.Figure()
+            fig.add_annotation(
+                x=0.5, y=0.5,
+                text=f"Column '{tmm_col}' not found in the data",
+                showarrow=False,
+                font=dict(color="red", size=16)
+            )
+            return fig
 
         # Handle metadata selection
         if selected_metadata is None or len(selected_metadata) == 0:
@@ -268,11 +296,12 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, log_transf
 
         # Apply log transformation
         if log_transform:
-            df = df.with_columns([(pl.col("cpm_normalized_tmm").add(1).log10()).alias("log_cpm_normalized_tmm")])
-            value_col = "log_cpm_normalized_tmm"
+            log_tmm_col = f"log_{tmm_col}"
+            df = df.with_columns([(pl.col(tmm_col).add(1).log10()).alias(log_tmm_col)])
+            value_col = log_tmm_col
             axis_title = "Log TMM(per million)"
         else:
-            value_col = "cpm_normalized_tmm"
+            value_col = tmm_col
             axis_title = "TMM(per million)"
 
         # Get unique values and colors
@@ -311,6 +340,10 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, log_transf
                     fillcolor=color_map[group], opacity=1,
                     box_visible=False, spanmode='hard'
                 ))
+
+        # Get proper display name for the count type
+        count_type_display = {"total": "Total", "unique": "Unique", "fullLength": "Full Length"}
+        count_type_name = count_type_display.get(count_type, count_type.capitalize())
 
         # Update layout with responsive fonts
         fig.update_layout(
@@ -369,9 +402,10 @@ def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, se
     try:
         # Get the gene name for the filename
         gene_info = duck_conn.execute("""
-            SELECT gene_id, gene_name 
-            FROM transcript_annotation 
-            WHERE gene_id = ?
+            SELECT g.gene_index, g.gene_name, g.gene_id
+            FROM gene_and_transcript_index_table g
+            WHERE g.gene_index = ?
+            GROUP BY g.gene_index, g.gene_name, g.gene_id
             LIMIT 1
         """, [selected_gene]).fetchone()
         
@@ -715,7 +749,7 @@ def layout():
                                     disabled=False
                                 ),
                                 html.Small(
-                                    "Generates high-quality vector graphics for publications",
+                                    "Takes a while to generate plots",
                                     style={
                                         "color": "#666666",
                                         "display": "block",
@@ -905,6 +939,9 @@ def update_gene_plot_tab2(selected_table, selected_gene, selected_metadata, log_
                 "border-radius": "6px"
             }
         ), None
+        
+    # If no count type is selected, use total counts by default
+    count_type = selected_table if selected_table else 'total'
 
     # Default window dimensions if not available yet
     if not window_dimensions:
@@ -924,9 +961,10 @@ def update_gene_plot_tab2(selected_table, selected_gene, selected_metadata, log_
     try:
         # Get gene info
         gene_info = duck_conn.execute("""
-            SELECT gene_id, gene_name
-            FROM transcript_annotation
-            WHERE gene_id = ?
+            SELECT g.gene_index, g.gene_name, g.gene_id
+            FROM gene_and_transcript_index_table g
+            WHERE g.gene_index = ?
+            GROUP BY g.gene_index, g.gene_name, g.gene_id
             LIMIT 1
         """, [selected_gene]).fetchone()
 
@@ -941,18 +979,40 @@ def update_gene_plot_tab2(selected_table, selected_gene, selected_metadata, log_
                 }
             ), None
 
-        actual_gene_id, gene_name = gene_info
+        # Unpack gene_info - gene_index, gene_name, gene_id
+        gene_index, gene_name, gene_id = gene_info
 
-        # Get data with metadata - remove the limit to get all samples
-        expression = get_gene_data_with_metadata(actual_gene_id, selected_table, with_polars=True, limit=None)
+        # Get data with metadata - use all_transcript_data table
+        expression = get_gene_data_with_metadata(gene_index, with_polars=True, limit=None)
 
-        # Get annotation data for this gene
+        # Get annotation data for this gene - join with gene_and_transcript_index_table to get gene_id and transcript_id
         annotation_query = """
-            SELECT *
-            FROM transcript_annotation
-            WHERE gene_id = ?
+            SELECT a.*, g.gene_id, g.gene_name, g.transcript_id, g.seqnames
+            FROM gene_and_transcript_index_table g
+            JOIN transcript_annotation a
+                ON a.gene_index = g.gene_index AND a.transcript_index = g.transcript_index
+            WHERE a.gene_index = ?
         """
-        annotation = duck_conn.execute(annotation_query, [actual_gene_id]).pl()
+        annotation = duck_conn.execute(annotation_query, [gene_index]).pl()
+
+        ## Get the transcript_id, gene_id, gene_name from the annotation table
+        expression = expression.join(annotation.select(["transcript_index", "transcript_id", "gene_id", "gene_name"]).unique(), 
+                                     on="transcript_index", how="inner")
+        
+        ## Drop indexes
+        expression = expression.drop(["transcript_index", "gene_index"])
+        annotation = annotation.drop(["transcript_index", "gene_index"])
+
+        # First convert strand to integer type to ensure consistent comparisons
+        annotation = annotation.with_columns(pl.col("strand").cast(pl.Utf8).alias("strand"))
+        # Then convert the integer values to string symbols
+        annotation = annotation.with_columns(
+            pl.when(pl.col("strand") == "-1").then(pl.lit("-"))
+              .when(pl.col("strand") == "1").then(pl.lit("+"))
+              .otherwise(pl.col("strand").cast(pl.Utf8))
+              .alias("strand")
+        )
+
 
         # Extract gene annotation details for plot title and subtitle
         chromosome = annotation["seqnames"][0] if "seqnames" in annotation.columns else "Unknown"
@@ -964,13 +1024,28 @@ def update_gene_plot_tab2(selected_table, selected_gene, selected_metadata, log_
         # Process the annotation data
         annotation = RNApy.shorten_gaps(annotation)
 
+        # Select the correct columns based on count_type
+        count_col = f"{count_type}_counts"
+        tmm_col = f"{count_type}_cpm_normalized_tmm"
+        abundance_col = f"{count_type}_relative_abundance"
+
+        # Make sure these columns exist
+        if count_col not in expression.columns or tmm_col not in expression.columns or abundance_col not in expression.columns:
+            error_cols = [col for col in [count_col, tmm_col, abundance_col] if col not in expression.columns]
+            error_message = f"Missing columns in expression data: {', '.join(error_cols)}"
+            return html.Div(
+                html.P(error_message, style={"color": "#dc3545", "margin": 0}),
+                style={"height": "100%", "width": "100%", "display": "flex", "justify-content": "center", 
+                      "align-items": "center", "min-height": "500px", "background-color": "#f8f9fa", "border-radius": "6px"}
+            ), None
+
         # Convert 1-based slider values to 0-based indices for the function
         # Add 1 to the upper bound to make it inclusive
         zero_based_range = [isoform_range[0] - 1, isoform_range[1]]
         expression, annotation = order_transcripts_by_expression(
             annotation_df=annotation,
             expression_df=expression,
-            expression_column="cpm_normalized_tmm",
+            expression_column=tmm_col,
             top_n=zero_based_range  # Use the converted range
         )
 
@@ -994,19 +1069,20 @@ def update_gene_plot_tab2(selected_table, selected_gene, selected_metadata, log_
 
         # Apply log transformation if selected
         if log_transform:
-            for col_name in ["counts", "cpm_normalized_tmm"]:
-                if col_name in expression.columns:
-                    log_col = f"log_{col_name}"
-                    expression = expression.with_columns([(pl.col(col_name).add(1).log10()).alias(log_col)])
-            expression_columns = ["log_counts", "log_cpm_normalized_tmm", "relative_abundance"]
+            log_count_col = f"log_{count_col}"
+            log_tmm_col = f"log_{tmm_col}"
+            expression = expression.with_columns([
+                (pl.col(count_col).add(1).log10()).alias(log_count_col),
+                (pl.col(tmm_col).add(1).log10()).alias(log_tmm_col)
+            ])
+            expression_columns = [log_count_col, log_tmm_col, abundance_col]
         else:
-            expression_columns = ["counts", "cpm_normalized_tmm", "relative_abundance"]
+            expression_columns = [count_col, tmm_col, abundance_col]
 
         hue_values = ["protein_coding", "retained_intron", "protein_coding_CDS_not_defined", "nonsense_mediated_decay",
                               "novel_low_confidence", "novel_high_confidence", "lncRNA", "other"]
         
         colormap = {val: color for val, color in zip(hue_values, get_n_colors(len(hue_values), 'Plotly'))}
-
 
         # Update the trace creation to use the correct columns
         trace_params = {
@@ -1037,11 +1113,15 @@ def update_gene_plot_tab2(selected_table, selected_gene, selected_metadata, log_
 
         traces = RNApy.make_traces(**trace_params)
 
+        # Get proper display names for the count type
+        count_type_display = {"total": "Total", "unique": "Unique", "fullLength": "Full Length"}
+        count_type_name = count_type_display.get(count_type, count_type.capitalize())
+
         # Create appropriate subplot titles based on transformation
         if log_transform:
-            subplot_titles = ["Transcript Structure", "Log Counts", "Log TMM(per million)", "Relative Abundance(%)"]
+            subplot_titles = ["Transcript Structure", f"Log {count_type_name} Counts", f"Log TMM(per million)", f"Relative Abundance(%)"]
         else:
-            subplot_titles = ["Transcript Structure", "Counts", "TMM(per million)", "Relative Abundance(%)"]
+            subplot_titles = ["Transcript Structure", f"{count_type_name} Counts", f"TMM(per million)", f"Relative Abundance(%)"]
 
         # Use the dynamic dimensions for your plot
         fig = RNApy.make_plot(traces=traces,
@@ -1062,7 +1142,7 @@ def update_gene_plot_tab2(selected_table, selected_gene, selected_metadata, log_
         fig.update_xaxes(range=[-0.5, 100.5], tickvals=[0, 20, 40, 60, 80, 100], row=1, col=4)
 
         # Main title annotation:
-        fig.add_annotation(x=0.5, y=1.16, xref='paper', yref='paper', text=f"{gene_name} ({actual_gene_id})", showarrow=False, xanchor="center", yanchor="top", font=dict(size=26 * scaling_factor))
+        fig.add_annotation(x=0.5, y=1.16, xref='paper', yref='paper', text=f"{gene_name} ({gene_id})", showarrow=False, xanchor="center", yanchor="top", font=dict(size=26 * scaling_factor))
         # Subtitle annotation:
         fig.add_annotation(x=0.5, y=1.11, xref='paper', yref='paper', text=f"Region: chr{chromosome}({strand}):{min_start}-{max_end}", showarrow=False, xanchor="center", yanchor="top", font=dict(size=18 * scaling_factor))
 
@@ -1112,9 +1192,9 @@ def update_slider_range_tab2(selected_gene):
     try:
         # Query to get the number of transcripts for this gene
         transcript_count = duck_conn.execute("""
-            SELECT COUNT(DISTINCT transcript_id)
-            FROM transcript_annotation
-            WHERE gene_id = ?
+            SELECT COUNT(DISTINCT transcript_index)
+            FROM gene_and_transcript_index_table
+            WHERE gene_index = ?
         """, [selected_gene]).fetchone()[0]
 
         if not transcript_count or transcript_count == 0: # Handle case where gene has 0 transcripts
@@ -1133,7 +1213,6 @@ def update_slider_range_tab2(selected_gene):
              marks = {i: str(i) for i in range(1, transcript_count + 1, step)}
              if transcript_count not in marks: # Ensure last value is a mark
                  marks[transcript_count] = str(transcript_count)
-
 
         # Default slider value
         new_value = [1, min(5, max_val)]

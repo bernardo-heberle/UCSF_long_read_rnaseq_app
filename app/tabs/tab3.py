@@ -182,18 +182,19 @@ def update_search_options(search_value, selected_value):
             # First get the full gene details from the database
             try:
                 gene_result = duck_conn.execute("""
-                    SELECT gene_id, gene_name 
-                    FROM transcript_annotation 
-                    WHERE gene_id = ?
+                    SELECT gene_index, gene_id, gene_name 
+                    FROM gene_and_transcript_index_table 
+                    WHERE gene_index = ?
+                    GROUP BY gene_index, gene_id, gene_name
                     LIMIT 1
                 """, [selected_value]).fetchone()
                 
                 if gene_result:
                     # Add this gene to the options
-                    gene_id, gene_name = gene_result
+                    gene_index, gene_id, gene_name = gene_result
                     option = {
                         'label': f"{gene_name} ({gene_id})",
-                        'value': gene_id
+                        'value': gene_index
                     }
                     last_valid_options = [option]  # Just show the current selection
             except Exception as e:
@@ -353,25 +354,32 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, trendline_
                 abbreviated_name = abbreviated_name.replace("-", "/")
                 abbreviated_name = abbreviated_name.replace("E", "")
 
-                subgroup_corr_text = "" # Initialize as empty
+                # Set correlation symbol based on type
+                if correlation_type == 'spearman':
+                    corr_symbol = "ρ"
+                else: # Pearson or default
+                    corr_symbol = "r"
+                
+                # Initialize correlation text with NA
+                subgroup_corr_text = f"{abbreviated_name}: {corr_symbol}=NA" 
+
                 if len(x_data_sub) >= min_points_for_corr:
                     try:
-                        # Explicitly set symbol based on type
+                        # Calculate correlation
                         if correlation_type == 'spearman':
                             corr, _ = spearmanr(x_data_sub, y_data_sub)
-                            corr_symbol = "ρ"
                         else: # Pearson or default
                             corr, _ = pearsonr(x_data_sub, y_data_sub)
-                            corr_symbol = "r"
-                        # Only add text if correlation is a valid number
+                            
+                        # Only update if correlation is a valid number
                         if not np.isnan(corr):
-                            # Use the correct symbol in the annotation text
                             subgroup_corr_text = f"{abbreviated_name}: {corr_symbol}={corr:.2f}"
                     except Exception as corr_e_sub:
                         print(f"Could not calculate correlation for subgroup {subgroup_name}: {corr_e_sub}")
-                # Only append if text is not empty (i.e., calculation was successful)
-                if subgroup_corr_text:
-                     correlation_texts.append(subgroup_corr_text)
+                
+                # Always add the correlation text (either with value or NA)
+                correlation_texts.append(subgroup_corr_text)
+                
             correlation_text = " | ".join(correlation_texts)
         else:
             # Calculate overall correlation if no subgroups
@@ -381,19 +389,25 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, trendline_
             x_data = x_data.loc[common_indices]
             y_data = y_data.loc[common_indices]
 
-            correlation_text = "" # Initialize as empty
+            # Set correlation symbol based on type
+            if correlation_type == 'spearman':
+                corr_symbol = "ρ"
+            else: # Pearson or default
+                corr_symbol = "r"
+            
+            # Initialize with NA
+            correlation_text = f"{corr_symbol}=NA"
+
             if len(x_data) >= min_points_for_corr:
                 try:
-                    # Explicitly set symbol based on type
+                    # Calculate correlation
                     if correlation_type == 'spearman':
                         corr, _ = spearmanr(x_data, y_data)
-                        corr_symbol = "ρ"
                     else: # Pearson or default
                         corr, _ = pearsonr(x_data, y_data)
-                        corr_symbol = "r"
-                    # Only set text if correlation is a valid number
+                        
+                    # Only update if correlation is a valid number
                     if not np.isnan(corr):
-                        # Use the correct symbol in the annotation text
                         correlation_text = f"{corr_symbol}={corr:.2f}"
                 except Exception as corr_e:
                     print(f"Could not calculate overall correlation: {corr_e}")
@@ -538,9 +552,10 @@ def download_plots_as_svg_tab3(n_clicks, density_fig, gene_level_fig, isoform_fi
     try:
         # Get the gene name for the filename
         gene_info = duck_conn.execute("""
-            SELECT gene_id, gene_name 
-            FROM transcript_annotation 
-            WHERE gene_id = ?
+            SELECT g.gene_index, g.gene_name, g.gene_id
+            FROM gene_and_transcript_index_table g
+            WHERE g.gene_index = ?
+            GROUP BY g.gene_index, g.gene_name, g.gene_id
             LIMIT 1
         """, [selected_gene]).fetchone()
         
@@ -1063,7 +1078,7 @@ def layout():
                                     disabled=False
                                 ),
                                 html.Small(
-                                    "Generates high-quality vector graphics for publications",
+                                    "Takes a while to generate plots",
                     style={
                         "color": "#666666",
                                         "display": "block",
@@ -1254,8 +1269,8 @@ def update_slider_range_tab3(selected_gene, current_range):
         # Query to get the number of transcripts for this gene
         transcript_count = duck_conn.execute("""
             SELECT COUNT(DISTINCT transcript_id)
-            FROM transcript_annotation
-            WHERE gene_id = ?
+            FROM gene_and_transcript_index_table
+            WHERE gene_index = ?
         """, [selected_gene]).fetchone()[0]
 
         if not transcript_count or transcript_count == 0:  # Handle case where gene has 0 transcripts
@@ -1381,7 +1396,6 @@ def limit_metadata_selections(selected_values):
                 # 1 or 2 non-restricted items selected, which is allowed.
                 return selected_values # Return the current list
 
-# Remove the trendline button callback and update the main callback
 @app.callback(
     [Output('rnapy-plot-tab3', 'figure'),
      Output('scatter-plot-tab3', 'figure'),
@@ -1396,7 +1410,8 @@ def limit_metadata_selections(selected_values):
      Input('y-axis-metric-tab3', 'value'),
      Input('correlation-type-tab3', 'value')]
 )
-def update_gene_plot_tab3(selected_table, selected_gene, selected_metadata, trendline_type, window_dimensions, isoform_range, correlation_var, y_axis_metric, correlation_type):
+def update_gene_plot_tab3(count_type, selected_gene, selected_metadata, trendline_type, window_dimensions, isoform_range, correlation_var, y_axis_metric, correlation_type):
+    
     # Return message if no gene is selected
     if not selected_gene:
         # Create placeholder figures similar to Tab 2
@@ -1417,6 +1432,9 @@ def update_gene_plot_tab3(selected_table, selected_gene, selected_metadata, tren
         return placeholder_fig_rnapy, placeholder_fig_scatter, None
 
     try:
+        # If no count type is selected, use total counts by default
+        count_type = count_type if count_type else 'total'
+
         # Default window dimensions if not available yet
         if not window_dimensions:
             window_dimensions = {'width': 1200, 'height': 800}
@@ -1435,32 +1453,66 @@ def update_gene_plot_tab3(selected_table, selected_gene, selected_metadata, tren
             plot_width_2 = (window_dimensions['width'] * 0.7) * 0.33
             plot_height = window_dimensions['height'] * 0.8
 
-        # Get gene info
+        # Get the gene name for the filename
         gene_info = duck_conn.execute("""
-            SELECT gene_id, gene_name
-            FROM transcript_annotation
-            WHERE gene_id = ?
+            SELECT g.gene_index, g.gene_name, g.gene_id
+            FROM gene_and_transcript_index_table g
+            WHERE g.gene_index = ?
+            GROUP BY g.gene_index, g.gene_name, g.gene_id
             LIMIT 1
         """, [selected_gene]).fetchone()
 
         if not gene_info:
             return go.Figure(), go.Figure(), None
 
-        actual_gene_id, gene_name = gene_info
+        gene_index, gene_name, actual_gene_id = gene_info
 
         # Get data with metadata
-        expression = get_gene_data_with_metadata(actual_gene_id, selected_table, with_polars=True, limit=None)
+        expression = get_gene_data_with_metadata(gene_index, with_polars=True, limit=None)
         if expression is None or len(expression) == 0:
             return go.Figure(), go.Figure(), None
 
+        # Select the correct columns based on count_type
+        tmm_col = f"{count_type}_cpm_normalized_tmm"
+        abundance_col = f"{count_type}_relative_abundance"
+
+        # Make sure these columns exist
+        if tmm_col not in expression.columns or abundance_col not in expression.columns:
+            error_cols = [col for col in [tmm_col, abundance_col] if col not in expression.columns]
+            error_message = f"Missing columns in expression data: {', '.join(error_cols)}"
+            return go.Figure(), go.Figure(), None
 
         # Get annotation data
-        annotation_query = "SELECT * FROM transcript_annotation WHERE gene_id = ?"
-        annotation = duck_conn.execute(annotation_query, [actual_gene_id]).pl()
+        annotation_query = """
+        SELECT a.*, g.gene_id, g.gene_name, g.transcript_id, g.seqnames
+        FROM gene_and_transcript_index_table g
+        JOIN transcript_annotation a ON a.gene_index = g.gene_index AND a.transcript_index = g.transcript_index
+        WHERE g.gene_index = ?
+        """
+        annotation = duck_conn.execute(annotation_query, [gene_index]).pl()
+
+        expression = expression.join(annotation.select(["transcript_index", "transcript_id", "gene_id", "gene_name"]).unique(), 
+                                on="transcript_index", how="inner")
+        
+        ## Drop indexes
+        expression = expression.drop(["transcript_index", "gene_index"])
+        annotation = annotation.drop(["transcript_index", "gene_index"])
+
+        # First convert strand to integer type to ensure consistent comparisons
+        annotation = annotation.with_columns(pl.col("strand").cast(pl.Utf8).alias("strand"))
+        
+        # Then convert the integer values to string symbols
+        annotation = annotation.with_columns(
+            pl.when(pl.col("strand") == "-1").then(pl.lit("-"))
+              .when(pl.col("strand") == "1").then(pl.lit("+"))
+              .otherwise(pl.col("strand").cast(pl.Utf8))
+              .alias("strand")
+        )
+
+        
 
         if annotation is None or len(annotation) == 0:
             return go.Figure(), go.Figure(), None
-
 
         chromosome = annotation["seqnames"][0] if "seqnames" in annotation.columns else "Unknown"
         strand = annotation["strand"][0] if "strand" in annotation.columns else "?"
@@ -1472,9 +1524,10 @@ def update_gene_plot_tab3(selected_table, selected_gene, selected_metadata, tren
         expression, annotation = order_transcripts_by_expression(
             annotation_df=annotation,
             expression_df=expression,
-            expression_column="cpm_normalized_tmm",
+            expression_column=tmm_col,
             top_n=zero_based_range
         )
+
         # Handle metadata hue for RNA isoform plot
         expression_hue = None
         if selected_metadata:
@@ -1551,7 +1604,7 @@ def update_gene_plot_tab3(selected_table, selected_gene, selected_metadata, tren
                 annot["xanchor"] = "left"
 
         # Create scatter plot for RNA isoform level
-        y_col = "cpm_normalized_tmm" if y_axis_metric == "tmm" else "relative_abundance"
+        y_col = tmm_col if y_axis_metric == "tmm" else abundance_col
         y_label = "TMM (per million)" if y_axis_metric == "tmm" else "Relative Abundance (%)"
         
         # Convert expression data to pandas for plotting
@@ -1735,25 +1788,32 @@ def update_gene_plot_tab3(selected_table, selected_gene, selected_metadata, tren
                     abbreviated_name = abbreviated_name.replace("-", "/")
                     abbreviated_name = abbreviated_name.replace("E", "")
 
-                    subgroup_corr_text = "" # Initialize as empty
+                    # Set correlation symbol based on type
+                    if correlation_type == 'spearman':
+                        corr_symbol = "ρ"
+                    else: # Pearson or default
+                        corr_symbol = "r"
+                        
+                    # Initialize with NA for correlation
+                    subgroup_corr_text = f"{abbreviated_name}: {corr_symbol}=NA"
+                    
                     if len(x_data_sub) >= min_points_for_corr:
                         try:
-                            # Explicitly set symbol based on type
+                            # Calculate correlation
                             if correlation_type == 'spearman':
                                 corr, _ = spearmanr(x_data_sub, y_data_sub)
-                                corr_symbol = "ρ"
                             else: # Pearson or default
                                 corr, _ = pearsonr(x_data_sub, y_data_sub)
-                                corr_symbol = "r"
-                            # Only add text if correlation is a valid number
+                                
+                            # Only update text if correlation is a valid number
                             if not np.isnan(corr):
-                                # Use the correct symbol in the annotation text
                                 subgroup_corr_text = f"{abbreviated_name}: {corr_symbol}={corr:.2f}"
                         except Exception as corr_e_sub:
                             print(f"Could not calculate correlation for {transcript_id} subgroup {subgroup_name}: {corr_e_sub}")
-                    # Only append if text is not empty
-                    if subgroup_corr_text:
-                         correlation_texts_facet.append(subgroup_corr_text)
+                    
+                    # Always add correlation text (either with value or NA)
+                    correlation_texts_facet.append(subgroup_corr_text)
+                
                 correlation_text_facet = " | ".join(correlation_texts_facet)
             else:
                 # Calculate overall correlation for the facet if no subgroups
@@ -1763,19 +1823,25 @@ def update_gene_plot_tab3(selected_table, selected_gene, selected_metadata, tren
                 x_data_facet = x_data_facet.loc[common_indices_facet]
                 y_data_facet = y_data_facet.loc[common_indices_facet]
 
-                correlation_text_facet = "" # Initialize as empty
+                # Set correlation symbol based on type
+                if correlation_type == 'spearman':
+                    corr_symbol = "ρ"
+                else: # Pearson or default
+                    corr_symbol = "r"
+                
+                # Initialize with NA
+                correlation_text_facet = f"{corr_symbol}=NA"
+                
                 if len(x_data_facet) >= min_points_for_corr:
                     try:
-                        # Explicitly set symbol based on type
+                        # Calculate correlation
                         if correlation_type == 'spearman':
                             corr, _ = spearmanr(x_data_facet, y_data_facet)
-                            corr_symbol = "ρ"
                         else: # Pearson or default
                             corr, _ = pearsonr(x_data_facet, y_data_facet)
-                            corr_symbol = "r"
-                        # Only set text if correlation is a valid number
+                            
+                        # Only update text if correlation is a valid number
                         if not np.isnan(corr):
-                            # Use the correct symbol in the annotation text
                             correlation_text_facet = f"{corr_symbol}={corr:.2f}"
                     except Exception as corr_e_facet:
                         print(f"Could not calculate overall correlation for {transcript_id}: {corr_e_facet}")
@@ -1804,4 +1870,4 @@ def update_gene_plot_tab3(selected_table, selected_gene, selected_metadata, tren
         print(f"Error in update_gene_plot_tab3: {str(e)}")
         import traceback
         print(traceback.format_exc())
-        return go.Figure(), go.Figure(), None 
+        return go.Figure(), go.Figure(), None
