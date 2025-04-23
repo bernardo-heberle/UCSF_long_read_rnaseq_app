@@ -233,7 +233,7 @@ def update_search_options(search_value, selected_value):
      Input('correlation-type-tab3', 'value')]
 )
 def update_gene_level_plot(selected_gene, options, selected_metadata, trendline_type, correlation_var, window_dimensions, correlation_type):
-    if not selected_gene:
+    if selected_gene is None:
         return go.Figure()
         
     try:
@@ -1413,7 +1413,7 @@ def limit_metadata_selections(selected_values):
 def update_gene_plot_tab3(count_type, selected_gene, selected_metadata, trendline_type, window_dimensions, isoform_range, correlation_var, y_axis_metric, correlation_type):
     
     # Return message if no gene is selected
-    if not selected_gene:
+    if selected_gene is None:
         # Create placeholder figures similar to Tab 2
         placeholder_style = {
             "xaxis": {"visible": False},

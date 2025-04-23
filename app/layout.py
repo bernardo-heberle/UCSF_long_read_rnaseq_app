@@ -26,6 +26,13 @@ layout = dbc.Container([
         storage_type='memory'
     ),
 
+    # Active tab store - initialize with home tab
+    dcc.Store(
+        id='active-tab',
+        data='tab-0',
+        storage_type='memory'
+    ),
+
     # Interval component to trigger the clientside callback (e.g. every second)
     dcc.Interval(id='interval', interval=500, n_intervals=0),    
 
@@ -33,30 +40,42 @@ layout = dbc.Container([
     html.Div(id='display-dimensions'),
     
     # Minimal, clean header with enhanced contrast and responsive font size
-    html.H1("Long-Read RNAseq Atlas of Aged Human Prefrontal Cortex and Alzheimer's Disease", 
-        className="mt-5 mb-4 dbc", 
-        style={
-            "font-weight": "400",
-            "letter-spacing": "1px",
-            "color": COLORS['text-primary'],
-            "border-bottom": f"3px solid {COLORS['accent']}",
-            "padding-bottom": "0.5rem",
-            "display": "inline-block",
-            "font-size": "calc(1.5rem + 1vw)"  # Responsive font size
-        }
-    ),
+    html.Div([
+        html.H1("Long-Read RNAseq Atlas of Aged Human Brain", 
+            className="mt-5 mb-2 dbc", 
+            style={
+                "font-weight": "400",
+                "letter-spacing": "1px",
+                "color": COLORS['text-primary'],
+                "border-bottom": f"3px solid {COLORS['accent']}",
+                "padding-bottom": "0.5rem",
+                "display": "inline-block",
+                "font-size": "calc(1.5rem + 1vw)"  # Responsive font size
+            }
+        ),
+        html.Div("Please cite us: XXXX", 
+            className="mb-4",
+            style={
+                "font-size": "1.5rem",
+                "font-style": "italic",
+                "color": COLORS['text-secondary'],
+                "margin-top": "-8px",
+                "letter-spacing": "0.5px"
+            }
+        )
+    ], className="d-inline-block"),
     
     # Tabs with enhanced styling and responsive font size
     dbc.Tabs(
         id="tabs",
         active_tab="tab-0",
         children=[
-            dbc.Tab(label="Home", tab_id="tab-0"),
-            dbc.Tab(label="Differential Expression", tab_id="tab-1"),
-            dbc.Tab(label="Isoform Explorer", tab_id="tab-2"),
-            dbc.Tab(label="Isoform Correlations", tab_id="tab-3"),
-            dbc.Tab(label="eQTL Explorer", tab_id="tab-4"),
-            dbc.Tab(label="Download Data", tab_id="tab-5")
+            dbc.Tab(label="Home", tab_id="tab-0", active_tab_style={"borderBottom": f"3px solid {COLORS['accent']}"}),
+            dbc.Tab(label="Differential Expression", tab_id="tab-1", active_tab_style={"borderBottom": f"3px solid {COLORS['accent']}"}),
+            dbc.Tab(label="Isoform Explorer", tab_id="tab-2", active_tab_style={"borderBottom": f"3px solid {COLORS['accent']}"}),
+            dbc.Tab(label="Isoform Correlations", tab_id="tab-3", active_tab_style={"borderBottom": f"3px solid {COLORS['accent']}"}),
+            dbc.Tab(label="QTL Explorer", tab_id="tab-4", active_tab_style={"borderBottom": f"3px solid {COLORS['accent']}"}),
+            dbc.Tab(label="Download Data", tab_id="tab-5", active_tab_style={"borderBottom": f"3px solid {COLORS['accent']}"}),
         ],
         className="mb-4 nav-tabs-clean dbc",
         style={
