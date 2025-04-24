@@ -685,7 +685,7 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
         dge_plot.figure.update_layout(
             title={
                 'text': f"<b>Total Counts Differential Gene Expression Volcano Plot {comparison_text}</b><br><span style='font-size:{subtitle_size}px'>Vertical lines at |log2 fold change| = {effect_size} and {'q-value threshold not shown (no significant genes)' if dge_sig_line is False else f'horizontal line shows significance cutoff (q-value < {pvalue_threshold})'}</span><br><span style='font-size:{base_font_size}px'>Positive log2 fold change indicates higher expression in AD</span>",
-                'y':0.95,
+                'y':0.96,
                 'x':0.5,
                 'xanchor': 'center',
                 'yanchor': 'top',
@@ -793,7 +793,7 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
         dte_plot.figure.update_layout(
             title={
                 'text': f"<b>{count_type.capitalize()} Counts Differential Transcript Expression Volcano Plot {comparison_text}</b><br><span style='font-size:{subtitle_size}px'>Vertical lines at |log2 fold change| = {effect_size} and {'q-value threshold not shown (no significant transcripts)' if dte_sig_line is False else f'horizontal line shows significance cutoff (q-value < {pvalue_threshold})'}</span><br><span style='font-size:{base_font_size}px'>Positive log2 fold change indicates higher transcript expression in AD</span>",
-                'y':0.95,
+                'y':0.96,
                 'x':0.5,
                 'xanchor': 'center',
                 'yanchor': 'top',
@@ -905,7 +905,7 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
             ),
             title={
                 'text': f"<b>{count_type.capitalize()} Counts Differential Transcript Usage Volcano Plot {comparison_text}</b><br><span style='font-size:{subtitle_size}px'>Vertical lines at |Effect Size| = {effect_size} and {'q-value threshold not shown (no significant transcripts)' if dtu_sig_line is False else f'horizontal line shows significance cutoff (q-value < {pvalue_threshold})'}</span><br><span style='font-size:{base_font_size}px'>Positive effect size indicates higher transcript usage in AD</span>",
-                'y':0.95,
+                'y':0.96,
                 'x':0.5,
                 'xanchor': 'center',
                 'yanchor': 'top',
@@ -1042,11 +1042,13 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
                 dge_fig.update_layout(
                     width=1200,  # Fixed width
                     height=800,  # Fixed height
-                    margin=dict(l=80, r=40, t=80, b=60),  # Adjusted margins
+                    margin=dict(l=80, r=40, t=120, b=60),  # Increased top margin for title
                     title=dict(
                         font=dict(size=24),  # Larger title
-                        y=0.95,
-                        x=0.5
+                        y=0.96,  # Move title up slightly
+                        x=0.5,
+                        xanchor='center',
+                        yanchor='top'
                     ),
                     xaxis=dict(
                         title_font=dict(size=20),
@@ -1073,11 +1075,13 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
                 dte_fig.update_layout(
                     width=1200,  # Fixed width
                     height=800,  # Fixed height
-                    margin=dict(l=80, r=40, t=80, b=60),  # Adjusted margins
+                    margin=dict(l=80, r=40, t=120, b=60),  # Increased top margin for title
                     title=dict(
                         font=dict(size=24),  # Larger title
-                        y=0.95,
-                        x=0.5
+                        y=0.96,  # Move title up slightly
+                        x=0.5,
+                        xanchor='center',
+                        yanchor='top'
                     ),
                     xaxis=dict(
                         title_font=dict(size=20),
@@ -1104,11 +1108,13 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
                 dtu_fig.update_layout(
                     width=1200,  # Fixed width
                     height=800,  # Fixed height
-                    margin=dict(l=80, r=40, t=80, b=60),  # Adjusted margins
+                    margin=dict(l=80, r=40, t=120, b=60),  # Increased top margin for title
                     title=dict(
                         font=dict(size=24),  # Larger title
-                        y=0.95,
-                        x=0.5
+                        y=0.96,  # Move title up slightly
+                        x=0.5,
+                        xanchor='center',
+                        yanchor='top'
                     ),
                     xaxis=dict(
                         title_font=dict(size=20),

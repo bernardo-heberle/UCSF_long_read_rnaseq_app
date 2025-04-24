@@ -97,7 +97,7 @@ def layout():
                             "border-radius": "4px"
                         }
                     ),
-                    href="https://www.youtube.com",
+                    href="https://www.youtube.com/watch?v=DZKYjN3lY-g",
                     target="_blank"
                 )
             ], className="text-center mb-4"),
