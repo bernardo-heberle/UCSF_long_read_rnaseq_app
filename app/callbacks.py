@@ -32,6 +32,5 @@ app.clientside_callback(
         function_name='updateWindowDimensions'  # This must match the function name
     ),
     Output("window-dimensions", "data"),
-    Input("interval", "n_intervals"),
-    prevent_initial_call=True
+    Input("interval", "n_intervals")
 )

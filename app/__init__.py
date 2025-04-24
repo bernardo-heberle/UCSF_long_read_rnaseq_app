@@ -4,16 +4,13 @@ import atexit
 from app.utils.db_utils import cleanup
 
 # --- Logging Setup ---
-# Removed memory logging setup
-
-# Variable to track the peak memory usage
-# Removed max_memory_mb variable
+# Memory tracking removed
 
 # --- Scheduler Setup ---
 # Removed scheduler setup
 
 # --- Graceful Shutdown ---
-# Removed scheduler shutdown function
+# Memory tracker shutdown function removed
 
 # --- End Scheduler ---
 
@@ -28,6 +25,8 @@ app = Dash(
 )
 server = app.server
 
-# Register cleanup function to be called when the app exits
-# Note: The original db cleanup is still registered
+# Memory tracking removed
+
+# Register cleanup functions to be called when the app exits
 atexit.register(cleanup)
+# Memory tracker shutdown removed

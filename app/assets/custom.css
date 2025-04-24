@@ -163,6 +163,70 @@ p[style*="font-size: 1.1rem"] {
     height: 4px;  /* Slightly thicker track */
 }
 
+/* Matrix Dropdown Custom Styling */
+.matrix-dropdown .Select-option {
+    padding: 10px 12px !important; /* Increased padding for more space */
+    line-height: 1.3 !important; /* More appropriate line height for multi-line text */
+    word-wrap: break-word !important; /* Ensure text wraps properly */
+    white-space: normal !important; /* Allow text to wrap to new lines */
+    height: auto !important; /* Allow height to adjust based on content */
+    display: flex !important; /* Use flexbox for better alignment */
+    align-items: center !important; /* Center content vertically */
+}
+
+.matrix-dropdown .Select-control {
+    min-height: 38px !important; /* Ensure minimum height of the control */
+}
+
+.matrix-dropdown .Select-menu-outer {
+    max-height: 400px !important; /* Allow more space for the dropdown menu */
+}
+
+.matrix-dropdown .Select-value {
+    line-height: 1.3 !important; /* Improved line height for selected value */
+    padding: 8px 12px !important; /* Better padding for selected value */
+    display: flex !important;
+    align-items: center !important;
+}
+
+.matrix-dropdown .Select-value-label {
+    white-space: normal !important; /* Allow selected text to wrap if needed */
+    word-wrap: break-word !important;
+}
+
+/* Scatter Plot X-axis Dropdown Styling */
+.axis-dropdown .Select-option {
+    padding: 10px 12px !important; /* Increased padding all around */
+    line-height: 1.5 !important; /* Larger line height for better readability */
+    word-wrap: break-word !important; /* Ensure text wraps properly */
+    white-space: normal !important; /* Allow text to wrap to new lines */
+    height: auto !important; /* Allow height to adjust based on content */
+    display: flex !important; /* Use flexbox for better alignment */
+    align-items: center !important; /* Center content vertically */
+}
+
+.axis-dropdown .Select-control {
+    min-height: 38px !important; /* Ensure minimum height of the control */
+}
+
+.axis-dropdown .Select-menu-outer {
+    max-height: 400px !important; /* Allow more space for the dropdown menu */
+    width: auto !important; /* Make sure dropdown is wide enough for content */
+    min-width: 100% !important; /* Ensure dropdown is at least as wide as the control */
+}
+
+.axis-dropdown .Select-value {
+    line-height: 1.5 !important; /* Improved line height for selected value */
+    padding: 8px 12px !important; /* Better padding for selected value */
+    display: flex !important;
+    align-items: center !important;
+}
+
+.axis-dropdown .Select-value-label {
+    white-space: normal !important; /* Allow selected text to wrap if needed */
+    word-wrap: break-word !important;
+}
+
 .custom-range-slider .rc-slider-rail {
     background-color: #e9ecef;  /* Light gray background for the track */
     height: 4px;  /* Match the track height */

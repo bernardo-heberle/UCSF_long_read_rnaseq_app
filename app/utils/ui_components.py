@@ -63,16 +63,23 @@ def create_section_header(title):
         }
     )
 
-def create_content_card(content):
+def create_content_card(content, id=None):
     """Create a standardized content card with consistent styling."""
-    return dbc.Card(
-        dbc.CardBody(content),
-        style={
+    card_props = {
+        "style": {
             "background-color": "#ffffff",
             "border": "1px solid rgba(0, 0, 0, 0.1)",
             "border-radius": "6px",
             "box-shadow": "0 2px 4px rgba(0, 0, 0, 0.1)"
         }
+    }
+    
+    if id:
+        card_props["id"] = id
+        
+    return dbc.Card(
+        dbc.CardBody(content),
+        **card_props
     )
 
 def create_radio_items(id, options, value=None, inline=True):

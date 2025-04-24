@@ -905,8 +905,9 @@ def layout():
                                         ],
                                         value="expired_age",
                                         clearable=False,
-                                        optionHeight=35,
-                                        maxHeight=300
+                                        optionHeight=60,
+                                        className="axis-dropdown",
+                                        maxHeight=400
                                     )
                                 ], style={
                                     "position": "relative",
@@ -1595,8 +1596,8 @@ def update_gene_plot_tab3(count_type, selected_gene, selected_metadata, trendlin
         padding = (x_max - x_min) * 0.05
         rnapy_fig.update_xaxes(range=[x_min - padding, x_max + padding], showticklabels=False, showline=False, zeroline=False, ticks="", row=1, col=1)
 
-        rnapy_fig.add_annotation(x=0.5, y=1.16, xref='paper', yref='paper', text=f"{gene_name} ({actual_gene_id})", showarrow=False, xanchor="center", yanchor="top", font=dict(size=26 * scaling_factor))
-        rnapy_fig.add_annotation(x=0.5, y=1.11, xref='paper', yref='paper', text=f"Region: chr{chromosome}({strand}):{min_start}-{max_end}", showarrow=False, xanchor="center", yanchor="top", font=dict(size=18 * scaling_factor))
+        rnapy_fig.add_annotation(x=0.5, y=1.12, xref='paper', yref='paper', text=f"{gene_name} ({actual_gene_id})", showarrow=False, xanchor="center", yanchor="top", font=dict(size=26 * scaling_factor))
+        rnapy_fig.add_annotation(x=0.5, y=1.08, xref='paper', yref='paper', text=f"Region: chr{chromosome}({strand}):{min_start}-{max_end}", showarrow=False, xanchor="center", yanchor="top", font=dict(size=18 * scaling_factor))
 
         for i, annot in enumerate(rnapy_fig['layout']['annotations']):
             if i < len(subplot_titles):

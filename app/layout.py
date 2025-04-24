@@ -23,7 +23,8 @@ layout = dbc.Container([
     # Window dimensions store - initialize with defaults
     dcc.Store(
         id='window-dimensions',
-        storage_type='memory'
+        storage_type='memory',
+        data={'width': 1200, 'height': 800}
     ),
 
     # Active tab store - initialize with home tab

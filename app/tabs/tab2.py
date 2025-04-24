@@ -483,17 +483,14 @@ def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, se
                 )
                 gene_expr_svg = real_fig.to_image(format="svg").decode('utf-8')
                 zipf.writestr(gene_expr_svg_name, gene_expr_svg)
-                print(f"Added gene expression plot to zip: {gene_expr_svg_name}")
                 
             # Export the RNA isoform plot if available
             if isoform_fig:
-                print("Creating isoform plot SVG")
                 isoform_svg_name = f"{gene_name}_RNA_isoform_plot.svg"
                 try:
                     real_fig = go.Figure(isoform_fig)
                     isoform_svg = real_fig.to_image(format="svg").decode('utf-8')
                     zipf.writestr(isoform_svg_name, isoform_svg)
-                    print(f"Successfully added isoform plot to zip: {isoform_svg_name}")
                 except Exception as isoform_error:
                     print(f"Error creating isoform SVG: {isoform_error}")
                     # Create placeholder instead
@@ -652,12 +649,15 @@ def layout():
                                         style={
                                             "background-color": "#ffffff",
                                             "padding": "10px",
-                                            "border-radius": "5px",
+                                            "border-radius": "5px", 
                                             "border": "1px solid rgba(0, 0, 0, 0.1)",
                                             "box-shadow": "0 2px 4px rgba(0, 0, 0, 0.1)",
                                             "width": "100%",
                                             "height": "100%",
-                                            "min-height": "400px"
+                                            "min-height": "500px", # Increased from 400px to match the graph's min-height
+                                            "display": "flex",
+                                            "justify-content": "center",
+                                            "align-items": "center"
                                         }
                                     )
                                 ]),
@@ -670,7 +670,7 @@ def layout():
                 ], 
                 className="mb-4 dbc",
                 id="tab2-row2",
-                style={"height": "90vh"}  # Make the row take up 90% of viewport height
+                style={"height": "90vh", "min-height": "600px"}  # Add min-height to ensure initial rendering
                 ),
 
                 # Third row - three columns
@@ -926,7 +926,7 @@ def update_gene_plot_tab2(selected_table, selected_gene, selected_metadata, log_
     # Return message if no gene is selected
     if selected_gene is None:
         return html.Div(
-            html.P("Please select a gene to display data",
+            html.P("Please select a gene to display data", 
                   style={"color": "#666666", "margin": 0}),
             style={
                 "height": "100%",
@@ -1142,9 +1142,10 @@ def update_gene_plot_tab2(selected_table, selected_gene, selected_metadata, log_
         fig.update_xaxes(range=[-0.5, 100.5], tickvals=[0, 20, 40, 60, 80, 100], row=1, col=4)
 
         # Main title annotation:
-        fig.add_annotation(x=0.5, y=1.16, xref='paper', yref='paper', text=f"{gene_name} ({gene_id})", showarrow=False, xanchor="center", yanchor="top", font=dict(size=26 * scaling_factor))
+        fig.add_annotation(x=0.5, y=1.12, xref='paper', yref='paper', text=f"{gene_name} ({gene_id})", showarrow=False, xanchor="center", yanchor="top", font=dict(size=26 * scaling_factor))
+
         # Subtitle annotation:
-        fig.add_annotation(x=0.5, y=1.11, xref='paper', yref='paper', text=f"Region: chr{chromosome}({strand}):{min_start}-{max_end}", showarrow=False, xanchor="center", yanchor="top", font=dict(size=18 * scaling_factor))
+        fig.add_annotation(x=0.5, y=1.08, xref='paper', yref='paper', text=f"Region: chr{chromosome}({strand}):{min_start}-{max_end}", showarrow=False, xanchor="center", yanchor="top", font=dict(size=18 * scaling_factor))
 
         # Update subplot titles separately
         for i, annot in enumerate(fig['layout']['annotations']):
@@ -1158,8 +1159,18 @@ def update_gene_plot_tab2(selected_table, selected_gene, selected_metadata, log_
 
         return dcc.Graph(
             figure=fig,
-            style={"height": "100%", "width": "100%", "min-height": "0"},
-            config={"responsive": True, "displayModeBar": True, "scrollZoom": False, "modeBarButtonsToRemove": ["autoScale2d"], "displaylogo": False}
+            style={
+                "height": "100%",
+                "width": "100%",
+                "min-height": "500px"  # Set explicit minimum height for initial rendering
+            },
+            config={
+                "responsive": True,
+                "displayModeBar": True,
+                "scrollZoom": False,
+                "modeBarButtonsToRemove": ["autoScale2d"],
+                "displaylogo": False
+            }
         ), fig # Return figure for store
 
     except Exception as e:
@@ -1170,10 +1181,24 @@ def update_gene_plot_tab2(selected_table, selected_gene, selected_metadata, log_
             if 'expression' in locals() and expression is not None: column_info = f"Available columns: {', '.join(expression.columns)}"
         except: column_info = "Could not retrieve column names"
         return html.Div([
-            html.P(f"Error creating visualization: {str(e)}", style={"color": "#dc3545"}),
-            html.P(column_info, style={"color": "#dc3545", "font-size": "6.9rem"}),
-            html.Pre(trace, style={"color": "#dc3545", "font-size": "0.8rem"})
-        ]), None
+            html.P(f"Error creating visualization: {str(e)}", 
+                  style={"color": "#dc3545", "margin": "0 0 10px 0"}),
+            html.Pre(trace, 
+                    style={"color": "#dc3545", "font-size": "0.8rem", "margin": 0})
+        ],
+        style={
+            "height": "100%",
+            "width": "100%",
+            "display": "flex",
+            "flex-direction": "column",
+            "justify-content": "center",
+            "align-items": "center",
+            "min-height": "500px",
+            "background-color": "#f8f9fa",
+            "border-radius": "6px",
+            "padding": "20px",
+            "text-align": "center"
+        }), None
 
 
 # Add the slider update callback
