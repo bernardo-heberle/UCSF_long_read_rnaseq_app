@@ -486,43 +486,15 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, trendline_
             ]
         )
 
-        # Add vertical y-axis label - Align with isoform scatter plot styling
-        # Calculate x based on metadata selection to avoid overlap with potential legend
-        num_metadata = len(selected_metadata) if selected_metadata else 0
-        y_axis_annotation_x = -0.1 - (0.065
-                                      
-                                       * 1/scaling_factor) - (num_metadata * 0.07)
-        gene_scatter.add_annotation(
-            x=y_axis_annotation_x, # Match isoform plot calculation logic
-            y=0.5,
-            xref="paper",
-            yref="paper",
-            text=y_label_text,
-            showarrow=False,
-            textangle=-90,
-            font=dict(size=base_font_size, color="black"),
-            align="left" # Match isoform plot alignment
-        )
-
-        # Add horizontal x-axis label at the bottom - Align with isoform scatter plot styling
-        gene_scatter.add_annotation(
-            x=0.5,
-            y=-0.18, # Match isoform plot position (adjust slightly for single plot)
-            xref="paper",
-            yref="paper",
-            text=x_label,
-            showarrow=False,
-            font=dict(size=base_font_size, color="black"),
-            align="center" # Match isoform plot alignment
-        )
-
         # Update axes - Ensure titles are blank as labels are handled by annotations
         gene_scatter.update_xaxes(
-            title_text="",
+            title_text=x_label,
+            title_font=dict(size=base_font_size, color="black"),
             tickfont=dict(size=base_font_size * 0.9)
         )
         gene_scatter.update_yaxes(
-            title_text="",
+            title_text=y_label_text,
+            title_font=dict(size=base_font_size, color="black"),
             tickfont=dict(size=base_font_size * 0.9)
         )
 
@@ -1711,7 +1683,7 @@ def update_gene_plot_tab3(count_type, selected_gene, selected_metadata, trendlin
         )
         # For multi-facet plots, ensure the title appears properly
         scatter_fig.add_annotation(
-            x=-0.20 + (0.0007 * n_subplots) - (len(selected_metadata) * 0.05),  # Fixed position relative to paper
+            x=-0.18 + (0.0007 * n_subplots) - (len(selected_metadata) * 0.05),  # Fixed position relative to paper
             y=0.5,    # Center vertically
             xref="paper",
             yref="paper",
