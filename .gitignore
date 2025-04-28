@@ -83,7 +83,6 @@ venv.bak/
 
 # Data and Figures
 data/raw_data/
-figures/
 sql_database/
 *.db
 *.csv
