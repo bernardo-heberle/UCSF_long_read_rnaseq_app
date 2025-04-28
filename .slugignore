@@ -1,0 +1,11 @@
+# Files to exclude from the Heroku slug
+.git/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+memory_usage.log
+*.code-workspace
+.gitignore
+cursor.config.json 
