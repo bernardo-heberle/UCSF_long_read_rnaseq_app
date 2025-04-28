@@ -68,7 +68,9 @@ def layout():
                                             ],
                                             value="ad_vs_ctrl",
                                             clearable=False,
-                                            className="mb-2"
+                                            className="mb-2 taller-dropdown",
+                                            optionHeight=60,
+                                            maxHeight=400
                                         )
                                     ], width=6),
                                     
@@ -84,7 +86,9 @@ def layout():
                                             ],
                                             value="total",
                                             clearable=False,
-                                            className="mb-2"
+                                            className="mb-2 taller-dropdown",
+                                            optionHeight=60,
+                                            maxHeight=400
                                         )
                                     ], width=6)
                                 ], className="mb-5"),
@@ -666,7 +670,8 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
                     mode='markers',
                     marker=dict(color="#2CA02C", size=max(14, int(18 * scaling_factor))),  # Responsive highlighted point size
                     name="Highlighted Gene",
-                    showlegend=show_legend
+                    showlegend=show_legend,
+                    legendgroup='Highlighted Gene'
                 ))
 
                 show_legend = False
@@ -773,6 +778,7 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
                     text=texts_sel,
                     name="Highlighted Gene",
                     mode='markers',
+                    legendgroup='Highlighted Gene',
                     marker=dict(color="#2CA02C", size=max(14, int(18 * scaling_factor))),  # Responsive highlighted point size
                     showlegend=show_legend
                 ))
@@ -884,7 +890,8 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
                     mode='markers',
                     marker=dict(color="#2CA02C", size=max(14, int(18 * scaling_factor))),  # Responsive highlighted point size
                     name="Highlighted Gene",
-                    showlegend=show_legend
+                    showlegend=show_legend,
+                    legendgroup='Highlighted Gene'
                 ))
 
                 show_legend = False

@@ -11,6 +11,34 @@ body {
     margin-bottom: calc(0.5vh + 5px);  /* Reduced responsive bottom margin */
 }
 
+/* Additional styles for group comparison dropdown that needs more height */
+.taller-dropdown .Select-control {
+    min-height: 50px !important; /* Taller minimum height */
+}
+
+.taller-dropdown .Select-value {
+    line-height: 2.5 !important; /* Much more line height for the selected value */
+    padding: 10px 12px !important; /* More padding */
+}
+
+.taller-dropdown .Select-option {
+    padding: 12px 14px !important; /* Even more padding for dropdown options */
+    line-height: 2 !important; /* Double line height */
+    min-height: 50px !important; /* Minimum height for each option */
+}
+
+.taller-dropdown .Select-value-label {
+    white-space: normal !important; /* Allow text to wrap */
+    word-wrap: break-word !important;
+}
+
+/* Ensure the dropdown container and placeholder respect the height */
+.taller-dropdown .Select-placeholder {
+    line-height: 2.5 !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+}
+
 /* Style content areas with very light backgrounds */
 .row, .col {
     background-color: #fcfcfc;  /* Very soft white for content areas */

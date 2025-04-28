@@ -1018,7 +1018,7 @@ def layout():
                                     allowCross=True
                                 ),
                                 html.Small(
-                                    "Select range of top expressed isoforms by rank (maximum 5 isoforms)",
+                                    "Select range of top expressed isoforms by rank (maximum 3 isoforms)",
                                     style={
                                         "color": "#666666",
                                         "display": "block",

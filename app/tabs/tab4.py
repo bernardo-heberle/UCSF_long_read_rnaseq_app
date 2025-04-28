@@ -665,7 +665,7 @@ def update_rsid_genotype_plot(selected_rsid, count_type, selected_gene, selected
      Input('window-dimensions', 'data')]
 )
 def update_gene_level_plot(selected_gene, options, selected_metadata, log_transform, plot_style, selected_rsid, window_dimensions):
-    if not selected_gene or not selected_rsid:
+    if selected_gene is None or selected_rsid is None:
         return go.Figure()
 
     # Default window dimensions if not available yet
@@ -694,6 +694,7 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, log_transf
 
         # Get RSID data and rename the sample ID column for joining
         df_rsid = get_rsid_data(selected_rsid, with_polars=True)
+        
         if df_rsid.is_empty():
             return go.Figure()
 
