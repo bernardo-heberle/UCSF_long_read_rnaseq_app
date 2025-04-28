@@ -602,6 +602,7 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
         
         ## Load DTU data into a pandas dataframe
         dtu_data = pd.DataFrame(duck_conn.execute(dtu_query).fetchall())
+        dtu_data["estimates"] = -dtu_data["estimates"].copy()
 
         # Calculate significance lines based on user-selected thresholds
         dge_sig_line = -np.log10(dge_data.loc[dge_data['padj'] < pvalue_threshold]['PValue'].max() + 0.000000001) \
