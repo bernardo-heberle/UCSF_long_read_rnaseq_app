@@ -16,6 +16,7 @@ import pandas as pd
 import json
 from io import StringIO
 import numpy as np
+import gc # Import garbage collector
 
 # Store the last valid search options to prevent them from disappearing
 last_valid_options = []
@@ -1068,8 +1069,10 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
                     )
                 )
                 
-                dge_svg = dge_fig.to_image(format="svg").decode('utf-8')
+                dge_svg = dge_fig.to_image(format="svg") # Keep as bytes
                 zipf.writestr(dge_svg_name, dge_svg)
+                del dge_fig, dge_svg # Explicitly delete large objects
+                gc.collect() # Collect garbage
             else:
                 print("No DGE figure found")
             
@@ -1101,8 +1104,10 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
                     )
                 )
                 
-                dte_svg = dte_fig.to_image(format="svg").decode('utf-8')
+                dte_svg = dte_fig.to_image(format="svg") # Keep as bytes
                 zipf.writestr(dte_svg_name, dte_svg)
+                del dte_fig, dte_svg # Explicitly delete large objects
+                gc.collect() # Collect garbage
             else:
                 print("No DTE figure found")
             
@@ -1134,15 +1139,19 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
                     )
                 )
                 
-                dtu_svg = dtu_fig.to_image(format="svg").decode('utf-8')
+                dtu_svg = dtu_fig.to_image(format="svg") # Keep as bytes
                 zipf.writestr(dtu_svg_name, dtu_svg)
+                del dtu_fig, dtu_svg # Explicitly delete large objects
+                gc.collect() # Collect garbage
             else:
                 print("No DTU figure found")
         
+        # Ensure zip file is closed before reading
+        # The 'with' statement handles closing zipf automatically
         
-        # Read the zip file
+        # Stream the zip file for base64 encoding
         with open(zip_path, 'rb') as f:
-            zip_data = f.read()
+            encoded_zip = base64.b64encode(f.read()).decode() # Read and encode
             
         # Clean up temp directory
         shutil.rmtree(temp_dir)
@@ -1150,7 +1159,7 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
             
         # Return the zip file
         return dict(
-            content=base64.b64encode(zip_data).decode(),
+            content=encoded_zip,
             filename=zip_filename,
             type="application/zip",
             base64=True
