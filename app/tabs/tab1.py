@@ -1044,7 +1044,9 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
             # Extract figures from the plot children if they exist
             
             # DGE Plot
+            print("starting")
             dge_fig = extract_figure(dge_plot_children)
+            print("ending")
             if dge_fig:
                 dge_svg_name = f"Differential_gene_expression_{comparison_text}.svg"
                 
