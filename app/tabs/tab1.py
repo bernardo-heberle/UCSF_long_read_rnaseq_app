@@ -996,6 +996,7 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
     import os
     import base64
     import shutil
+    import gc
     
     if n_clicks is None or not n_clicks:
         return no_update
@@ -1070,11 +1071,14 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
                     )
                 )
                 
-                dge_svg = dge_fig.to_image(format="svg").decode('utf-8')
-                zipf.writestr(dge_svg_name, dge_svg)
+                tmp_svg = os.path.join(temp_dir, dge_svg_name)
+                dge_fig.write_image(tmp_svg, format='svg')
+                del dge_fig
+                gc.collect()
+                zipf.write(tmp_svg, arcname=os.path.basename(tmp_svg))
+                os.remove(tmp_svg)
                 print("DGE plot added to zip.")
-                dge_fig=None
-                dge_svg=None
+
             else:
                 print("No DGE figure found")
             
@@ -1106,11 +1110,13 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
                     )
                 )
                 
-                dte_svg = dte_fig.to_image(format="svg").decode('utf-8')
-                zipf.writestr(dte_svg_name, dte_svg)
+                tmp_svg = os.path.join(temp_dir, dte_svg_name)
+                dte_fig.write_image(tmp_svg, format='svg')
+                del dte_fig
+                gc.collect()
+                zipf.write(tmp_svg, arcname=os.path.basename(tmp_svg))
+                os.remove(tmp_svg)
                 print("DTE plot added to zip.")
-                dte_fig=None
-                dte_svg=None
             else:
                 print("No DTE figure found")
             
@@ -1142,11 +1148,13 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
                     )
                 )
                 
-                dtu_svg = dtu_fig.to_image(format="svg").decode('utf-8')
-                zipf.writestr(dtu_svg_name, dtu_svg)
+                tmp_svg = os.path.join(temp_dir, dtu_svg_name)
+                dtu_fig.write_image(tmp_svg, format='svg')
+                del dtu_fig
+                gc.collect()
+                zipf.write(tmp_svg, arcname=os.path.basename(tmp_svg))
+                os.remove(tmp_svg)
                 print("DTU plot added to zip.")
-                dtu_fig=None
-                dtu_svg=None
             else:
                 print("No DTU figure found")
         
