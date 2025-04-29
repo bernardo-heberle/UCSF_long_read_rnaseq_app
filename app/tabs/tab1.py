@@ -20,7 +20,6 @@ import gc # Import garbage collector
 # Heavy imports for SVG download moved out of callback
 import tempfile, zipfile, os, shutil
 import base64
-from dash_extensions.snippets import send_file
 
 # Store the last valid search options to prevent them from disappearing
 last_valid_options = []
@@ -1162,8 +1161,34 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
                 gc.collect()
                 print("DTU plot processed and added to zip.")
         
-        # Use send_file to stream the zip instead of loading into memory
-        return send_file(zip_path)
+        # Stream the zip file in a memory-efficient way
+        # We'll use a generator to read and encode in chunks
+        # This prevents loading the entire file into memory at once
+        def generate_base64_chunks(file_path, chunk_size=8192):
+            with open(file_path, 'rb') as f:
+                chunk = f.read(chunk_size)
+                while chunk:
+                    encoded_chunk = base64.b64encode(chunk).decode('utf-8')
+                    gc.collect()  # Collect garbage after each chunk
+                    yield encoded_chunk
+                    chunk = f.read(chunk_size)
+        
+        # Join all chunks into a single string
+        encoded_content = ''.join(generate_base64_chunks(zip_path))
+        
+        # Clean up temp directory
+        shutil.rmtree(temp_dir)
+        
+        # One final garbage collection
+        gc.collect()
+        
+        # Return the zip file for download
+        return dict(
+            content=encoded_content,
+            filename=zip_filename,
+            type="application/zip",
+            base64=True
+        )
             
     except Exception as e:
         import traceback
