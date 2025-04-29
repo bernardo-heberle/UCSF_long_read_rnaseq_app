@@ -1036,6 +1036,8 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
             
             return None
         
+        print("WOOOW")
+        
         # Create a zip file
         with zipfile.ZipFile(zip_path, 'w') as zipf:
             # Extract figures from the plot children if they exist
@@ -1070,6 +1072,7 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
                 
                 dge_svg = dge_fig.to_image(format="svg").decode('utf-8')
                 zipf.writestr(dge_svg_name, dge_svg)
+                print("DGE plot added to zip.")
             else:
                 print("No DGE figure found")
             
@@ -1103,6 +1106,7 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
                 
                 dte_svg = dte_fig.to_image(format="svg").decode('utf-8')
                 zipf.writestr(dte_svg_name, dte_svg)
+                print("DTE plot added to zip.")
             else:
                 print("No DTE figure found")
             
@@ -1136,6 +1140,7 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
                 
                 dtu_svg = dtu_fig.to_image(format="svg").decode('utf-8')
                 zipf.writestr(dtu_svg_name, dtu_svg)
+                print("DTU plot added to zip.")
             else:
                 print("No DTU figure found")
         
