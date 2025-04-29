@@ -1031,8 +1031,6 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
                 
                 # Update layout for larger size and wider ratio
                 fig = go.Figure(dge_fig)  # Create a copy to avoid modifying the original
-                del dge_fig
-                gc.collect()
                 fig.update_layout(
                     width=1200,  # Fixed width
                     height=800,  # Fixed height
@@ -1061,8 +1059,6 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
                 print("DGE plot added to zip.")
                 os.remove(tmp_svg)
                 pio.kaleido.scope._shutdown_kaleido()
-                del fig
-                gc.collect()
             else:
                 print("No DGE figure found")
             
@@ -1072,8 +1068,6 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
                 
                 # Update layout for larger size and wider ratio
                 fig = go.Figure(dte_fig)  # Create a copy to avoid modifying the original
-                del dte_fig
-                gc.collect()
                 fig.update_layout(
                     width=1200,  # Fixed width
                     height=800,  # Fixed height
@@ -1102,8 +1096,6 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
                 print("DTE plot added to zip.")
                 os.remove(tmp_svg)
                 pio.kaleido.scope._shutdown_kaleido()
-                del fig
-                gc.collect()
             else:
                 print("No DTE figure found")
             
@@ -1113,8 +1105,6 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
                 
                 # Update layout for larger size and wider ratio
                 fig = go.Figure(dtu_fig)  # Create a copy to avoid modifying the original
-                del dtu_fig
-                gc.collect()
                 fig.update_layout(
                     width=1200,  # Fixed width
                     height=800,  # Fixed height
@@ -1143,8 +1133,6 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
                 print("DTU plot added to zip.")
                 os.remove(tmp_svg)
                 pio.kaleido.scope._shutdown_kaleido()
-                del fig
-                gc.collect()
             else:
                 print("No DTU figure found")
         
