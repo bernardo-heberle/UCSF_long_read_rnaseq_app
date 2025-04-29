@@ -1054,7 +1054,8 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
                 
                 # 1) write SVG straight to disk
                 tmp_svg = os.path.join(temp_dir, dge_svg_name)
-                fig.write_image(tmp_svg, format="svg")
+                with open(tmp_svg, "wb") as f:
+                    fig.write_image(f, format="svg")
                 zipf.write(tmp_svg, arcname=dge_svg_name)
                 print("DGE plot added to zip.")
                 os.remove(tmp_svg)
@@ -1092,7 +1093,8 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
                 
                 # 1) write SVG straight to disk
                 tmp_svg = os.path.join(temp_dir, dte_svg_name)
-                fig.write_image(tmp_svg, format="svg")
+                with open(tmp_svg, "wb") as f:
+                    fig.write_image(f, format="svg")
                 zipf.write(tmp_svg, arcname=dte_svg_name)
                 print("DTE plot added to zip.")
                 os.remove(tmp_svg)
@@ -1129,7 +1131,8 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
                 
                 # 1) write SVG straight to disk
                 tmp_svg = os.path.join(temp_dir, dtu_svg_name)
-                fig.write_image(tmp_svg, format="svg")
+                with open(tmp_svg, "wb") as f:
+                    fig.write_image(f, format="svg")
                 zipf.write(tmp_svg, arcname=dtu_svg_name)
                 print("DTU plot added to zip.")
                 os.remove(tmp_svg)
