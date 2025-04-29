@@ -990,14 +990,17 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
      State('window-dimensions', 'data')]  # Keep window dimensions for consistency
 )
 def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, dtu_plot_children, selected_gene_name, group_comparison, window_dimensions):
-    from dash import no_update
+    from dash import dcc, no_update
     import tempfile
     import zipfile
     import os
     import base64
     import shutil
     import gc
-    
+    import os    
+    from dash.dependencies import Input, Output, State
+    import plotly.graph_objs as go
+        
     if n_clicks is None or not n_clicks:
         return no_update
     
@@ -1044,9 +1047,7 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
             # Extract figures from the plot children if they exist
             
             # DGE Plot
-            print("starting")
             dge_fig = extract_figure(dge_plot_children)
-            print("ending")
             if dge_fig:
                 dge_svg_name = f"Differential_gene_expression_{comparison_text}.svg"
                 
@@ -1073,13 +1074,13 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
                     )
                 )
                 
-                tmp_svg = os.path.join(temp_dir, dge_svg_name)
-                dge_fig.write_image(tmp_svg, format='svg')
+                dge_svg = dge_fig.to_image(format="svg")
                 del dge_fig
                 gc.collect()
-                zipf.write(tmp_svg, arcname=os.path.basename(tmp_svg))
-                os.remove(tmp_svg)
+                zipf.writestr(dge_svg_name, dge_svg)
                 print("DGE plot added to zip.")
+                del dge_svg
+                gc.collect()
 
             else:
                 print("No DGE figure found")
@@ -1112,13 +1113,13 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
                     )
                 )
                 
-                tmp_svg = os.path.join(temp_dir, dte_svg_name)
-                dte_fig.write_image(tmp_svg, format='svg')
+                dte_svg = dte_fig.to_image(format="svg")
                 del dte_fig
                 gc.collect()
-                zipf.write(tmp_svg, arcname=os.path.basename(tmp_svg))
-                os.remove(tmp_svg)
+                zipf.writestr(dte_svg_name, dte_svg)
                 print("DTE plot added to zip.")
+                del dte_svg
+                gc.collect()
             else:
                 print("No DTE figure found")
             
@@ -1150,32 +1151,24 @@ def download_plots_as_svg_tab1(n_clicks, dge_plot_children, dte_plot_children, d
                     )
                 )
                 
-                tmp_svg = os.path.join(temp_dir, dtu_svg_name)
-                dtu_fig.write_image(tmp_svg, format='svg')
+                dtu_svg = dtu_fig.to_image(format="svg")
                 del dtu_fig
                 gc.collect()
-                zipf.write(tmp_svg, arcname=os.path.basename(tmp_svg))
-                os.remove(tmp_svg)
+                zipf.writestr(dtu_svg_name, dtu_svg)
                 print("DTU plot added to zip.")
+                del dtu_svg
+                gc.collect()
             else:
                 print("No DTU figure found")
         
-        
-        # Read the zip file
-        with open(zip_path, 'rb') as f:
-            zip_data = f.read()
+        ## Write file
+        out = dcc.send_file(zip_path)
             
         # Clean up temp directory
         shutil.rmtree(temp_dir)
         
-            
         # Return the zip file
-        return dict(
-            content=base64.b64encode(zip_data).decode(),
-            filename=zip_filename,
-            type="application/zip",
-            base64=True
-        )
+        return out
             
     except Exception as e:
         import traceback
