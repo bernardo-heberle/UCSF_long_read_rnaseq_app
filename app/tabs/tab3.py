@@ -323,7 +323,14 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, trendline_
             "astrocyte_proportion": "Astrocyte Proportion",
             "oligodendrocyte_proportion": "Oligodendrocyte Proportion",
             "neuronal_proportion": "Neuronal Proportion",
-            "microglia-pvm_proportion": "Microglia-PVM Proportion"
+            "microglia-pvm_proportion": "Microglia-PVM Proportion",
+            "last_mmse_test_score": "MMSE Score",
+            "plaquef": "Plaque Density - Frontal Cortex",
+            "plaquetotal": "Total Plaque Density",
+            "tanglef": "Tangle Density - Frontal Cortex",
+            "tangletotal": "Total Tangle Density",
+            "dementia_years": "Years with Dementia",
+            "demential_age": "Age at Dementia Diagnosis (Years)"
         }
         x_label = var_labels.get(correlation_var, correlation_var)
 
@@ -820,11 +827,11 @@ def layout():
                         html.Td([
                             create_section_header("Search Gene:"),
                             create_gene_search_dropdown(id="search-input-tab3")
-                        ], id="tab3-gene-search-col", style={"width": "16.66%", "padding": "0 2px"}),
+                        ], id="tab3-gene-search-col", style={"width": "33.33%", "padding": "0 2px"}),
                         html.Td([
                             create_section_header("Data Matrix:"),
                             create_matrix_dropdown(dropdown_options, default_table, id="matrix-table-dropdown-tab3")
-                        ], id="tab3-matrix-col", style={"width": "16.66%", "padding": "0 2px"}),
+                        ], id="tab3-matrix-col", style={"width": "33.33%", "padding": "0 2px"}),
                         html.Td([
                             create_section_header("Trendline Type:"),
                             create_content_card([
@@ -840,7 +847,13 @@ def layout():
                                     )
                                 ], className="radio-group-container dbc")
                             ])
-                        ], id="tab3-transform-col", style={"width": "16.66%", "padding": "0 2px"}),
+                        ], id="tab3-transform-col", style={"width": "33.33%", "padding": "0 2px"}),
+                    ])
+                ], style={"width": "100%", "tableLayout": "fixed"}, className="mb-2", id="tab3-row1"),
+
+                # New second row with remaining controls
+                html.Table([
+                    html.Tr([
                         html.Td([
                             create_section_header("Correlation Type:"),
                             create_content_card([
@@ -856,7 +869,7 @@ def layout():
                                     )
                                 ], className="radio-group-container dbc")
                             ])
-                        ], id="tab3-correlation-col", style={"width": "16.66%", "padding": "0 2px"}),
+                        ], id="tab3-correlation-col", style={"width": "33.33%", "padding": "0 2px"}),
                         html.Td([
                             create_section_header("Scatter Plot X-axis:"),
                             create_content_card([
@@ -865,9 +878,11 @@ def layout():
                                         id="correlation-var-tab3",
                                         options=[
                                             {"label": "Age at Death", "value": "expired_age"},
+                                            {"label": "Age at Dementia Diagnosis", "value": "demential_age"},
                                             {"label": "All Reads", "value": "all_reads"},
                                             {"label": "Astrocyte Proportion", "value": "astrocyte_proportion"},
                                             {"label": "Brain Weight", "value": "brain_weight_grams"},
+                                            {"label": "Last MMSE Test Score", "value": "last_mmse_test_score"},
                                             {"label": "Mapping Rate", "value": "mapping_rate_(%)"},
                                             {"label": "Mapping Rate (MAPQ ≥ 10)", "value": "mapping_rate_-_mapq_>=_10_(%)"},
                                             {"label": "Median Read Length", "value": "median_read_length_bam"},
@@ -875,11 +890,16 @@ def layout():
                                             {"label": "N50", "value": "n50_bam"},
                                             {"label": "Neuronal Proportion", "value": "neuronal_proportion"},
                                             {"label": "Oligodendrocyte Proportion", "value": "oligodendrocyte_proportion"},
+                                            {"label": "Plaque Density Frontal Cortex", "value": "plaquef"},
                                             {"label": "Post-Mortem Interval", "value": "pmi"},
                                             {"label": "Primary Alignments (MAPQ ≥ 10)", "value": "filtered_primary_alignments_(mapq)"},
                                             {"label": "RNA Integrity (RIN)", "value": "rin"},
+                                            {"label": "Tangle Density Frontal Cortex", "value": "tanglef"},
                                             {"label": "TIN Median", "value": "tin_median"},
-                                            {"label": "Trimmed & Filtered Reads", "value": "trimmed_&_processed_pass_reads"}
+                                            {"label": "Total Plaque Density", "value": "plaquetotal"},
+                                            {"label": "Total Tangle Density", "value": "tangletotal"},
+                                            {"label": "Trimmed & Filtered Reads", "value": "trimmed_&_processed_pass_reads"},
+                                            {"label": "Years Living with Dementia", "value": "dementia_years"}
                                         ],
                                         value="expired_age",
                                         clearable=False,
@@ -893,7 +913,7 @@ def layout():
                                     "width": "100%"
                                 })
                             ])
-                        ], id="tab3-col5", style={"width": "16.66%", "padding": "0 2px"}),
+                        ], id="tab3-x-axis-col", style={"width": "33.33%", "padding": "0 2px"}),
                         html.Td([
                             create_section_header("Scatter Plot Y-axis:"),
                             create_content_card([
@@ -909,11 +929,11 @@ def layout():
                                     )
                                 ], className="radio-group-container dbc")
                             ])
-                        ], id="tab3-col6", style={"width": "16.66%", "padding": "0 2px"}),
+                        ], id="tab3-y-axis-col", style={"width": "33.33%", "padding": "0 2px"}),
                     ])
-                ], style={"width": "100%", "tableLayout": "fixed"}, className="mb-4", id="tab3-row1"),
+                ], style={"width": "100%", "tableLayout": "fixed"}, className="mb-4", id="tab3-row2"),
 
-                # Second row - Two separate graphs
+                # Third row - Two separate graphs
                 dbc.Row([
                     dbc.Col([
                         create_content_card(
@@ -944,7 +964,7 @@ def layout():
                                 spinner_style={"width": "3rem", "height": "3rem"}
                             )
                         )
-                    ], width=8, id="tab3-col2-1"),
+                    ], width=8, id="tab3-col3-1"),
                     dbc.Col([
                         create_content_card(
                             dbc.Spinner(
@@ -974,14 +994,14 @@ def layout():
                                 spinner_style={"width": "3rem", "height": "3rem"}
                             )
                         )
-                    ], width=4, id="tab3-col2-2"),
+                    ], width=4, id="tab3-col3-2"),
                 ], 
                 className="mb-4 dbc",
-                id="tab3-row2",
+                id="tab3-row3",
                 style={"height": "90vh"}  # Make the row take up 90% of viewport height
                 ),
 
-                # Third row - three columns
+                # Fourth row - three columns
                 dbc.Row([
                     dbc.Col([
                         create_section_header("Show data separated by:"),
@@ -999,7 +1019,7 @@ def layout():
                                 )
                             ])
                         ])
-                    ], width=4, id="tab3-col3-1"),
+                    ], width=4, id="tab3-col4-1"),
                     dbc.Col([
                         create_section_header("Isoform Range"),
                         create_content_card([
@@ -1034,7 +1054,7 @@ def layout():
                                 )
                             ], style={"padding": "10px"})
                         ])
-                    ], width=4, id="tab3-col3-2"),
+                    ], width=4, id="tab3-col4-2"),
                     dbc.Col([
                         create_section_header("Download Plots"),
                         create_content_card([
@@ -1058,8 +1078,8 @@ def layout():
                                 ),
                                 html.Small(
                                     "Takes a while to generate plots",
-                    style={
-                        "color": "#666666",
+                                    style={
+                                        "color": "#666666",
                                         "display": "block",
                                         "marginTop": "8px",
                                         "textAlign": "center"
@@ -1067,10 +1087,10 @@ def layout():
                                 )
                             ], style={"padding": "10px"})
                         ])
-                    ], width=4, id="tab3-col3-3"),
-                ], className="mb-4 dbc", id="tab3-row3"),
+                    ], width=4, id="tab3-col4-3"),
+                ], className="mb-4 dbc", id="tab3-row4"),
 
-                # Fourth row - two columns (Density and Gene Level Plots)
+                # Fifth row - two columns (Density and Gene Level Plots)
                 dbc.Row([
                     dbc.Col([
                         create_section_header(""),
@@ -1087,7 +1107,7 @@ def layout():
                                 style={'height': '400px'}
                             )
                         ])
-                    ], width=8, id="tab3-col4-1"),
+                    ], width=8, id="tab3-col5-1"),
                     dbc.Col([
                         create_section_header(""),
                         create_content_card([
@@ -1102,8 +1122,8 @@ def layout():
                                 style={'height': '400px'}
                             )
                         ])
-                    ], width=4, id="tab3-col4-2"),
-                ], className="mb-4 dbc", id="tab3-row4"),
+                    ], width=4, id="tab3-col5-2"),
+                ], className="mb-4 dbc", id="tab3-row5"),
             ], id="tab3-card-body")
         ],
         id="tab3-card",
@@ -1129,15 +1149,19 @@ def layout():
      Output("tab3-matrix-col", "width"),
      Output("tab3-transform-col", "width"),
      Output("tab3-row2", "className"),
-     Output("tab3-col2-1", "width"),
-     Output("tab3-col2-2", "width"),
+     Output("tab3-correlation-col", "width"),
+     Output("tab3-x-axis-col", "width"),
+     Output("tab3-y-axis-col", "width"),
      Output("tab3-row3", "className"),
      Output("tab3-col3-1", "width"),
      Output("tab3-col3-2", "width"),
-     Output("tab3-col3-3", "width"),
      Output("tab3-row4", "className"),
      Output("tab3-col4-1", "width"),
-     Output("tab3-col4-2", "width")],
+     Output("tab3-col4-2", "width"),
+     Output("tab3-col4-3", "width"),
+     Output("tab3-row5", "className"),
+     Output("tab3-col5-1", "width"),
+     Output("tab3-col5-2", "width")],
     [Input("window-dimensions", "data")]
 )
 def update_tab3_responsiveness(dimensions):
@@ -1145,7 +1169,8 @@ def update_tab3_responsiveness(dimensions):
         # Default styles if no dimensions available
         return (
             {"max-width": "98%", "margin": "0 auto", "padding": "10px"},
-            "mb-4 dbc", 3, 3, 3,
+            "mb-2 dbc", 33, 33, 33,
+            "mb-4 dbc", 33, 33, 33,
             "mb-4 dbc", 8, 4,
             "mb-4 dbc", 4, 4, 4,
             "mb-4 dbc", 8, 4
@@ -1155,74 +1180,109 @@ def update_tab3_responsiveness(dimensions):
     
     # Base styles
     container_style = {"max-width": "98%", "margin": "0 auto", "padding": "10px"}
-    row1_class = "mb-4 dbc"
-    gene_search_col_width = 3
-    matrix_col_width = 3
-    transform_col_width = 3
     
+    # Row 1 - Search, matrix, trendline
+    row1_class = "mb-2 dbc"
+    gene_search_col_width = 33
+    matrix_col_width = 33
+    transform_col_width = 33
+    
+    # Row 2 - Correlation, x-axis, y-axis
     row2_class = "mb-4 dbc"
-    col2_1_width = 8
-    col2_2_width = 4
+    correlation_col_width = 33
+    x_axis_col_width = 33
+    y_axis_col_width = 33
     
+    # Row 3 - Plots
     row3_class = "mb-4 dbc"
-    col3_1_width = 4
+    col3_1_width = 8
     col3_2_width = 4
-    col3_3_width = 4
     
+    # Row 4 - Controls
     row4_class = "mb-4 dbc"
-    col4_1_width = 8
+    col4_1_width = 4
     col4_2_width = 4
+    col4_3_width = 4
+    
+    # Row 5 - Density and gene level plots
+    row5_class = "mb-4 dbc"
+    col5_1_width = 8
+    col5_2_width = 4
     
     # Responsive adjustments based on width
     if width < 576:  # Extra small devices
         container_style.update({"padding": "5px", "max-width": "100%"})
+        
+        # Row 1 - full width columns
         row1_class = "mb-2 dbc flex-column"
-        gene_search_col_width = 12
-        matrix_col_width = 12
-        transform_col_width = 12
+        gene_search_col_width = 100
+        matrix_col_width = 100
+        transform_col_width = 100
         
+        # Row 2 - full width columns
         row2_class = "mb-2 dbc flex-column"
-        col2_1_width = 12
-        col2_2_width = 12
+        correlation_col_width = 100
+        x_axis_col_width = 100
+        y_axis_col_width = 100
         
+        # Row 3 - full width columns
         row3_class = "mb-2 dbc flex-column"
         col3_1_width = 12
         col3_2_width = 12
-        col3_3_width = 12
         
+        # Row 4 - full width columns
         row4_class = "mb-2 dbc flex-column"
         col4_1_width = 12
         col4_2_width = 12
+        col4_3_width = 12
+        
+        # Row 5 - full width columns
+        row5_class = "mb-2 dbc flex-column"
+        col5_1_width = 12
+        col5_2_width = 12
         
     elif width < 768:  # Small devices
         container_style.update({"padding": "8px"})
+        
+        # Row 1 - two columns per row
         row1_class = "mb-3 dbc"
-        gene_search_col_width = 6
-        matrix_col_width = 6
-        transform_col_width = 6
+        gene_search_col_width = 50
+        matrix_col_width = 50
+        transform_col_width = 100
         
-        row2_class = "mb-3 dbc flex-column"
-        col2_1_width = 12
-        col2_2_width = 12
+        # Row 2 - two columns per row
+        row2_class = "mb-3 dbc"
+        correlation_col_width = 50
+        x_axis_col_width = 50
+        y_axis_col_width = 100
         
+        # Row 3 - stacked columns
         row3_class = "mb-3 dbc flex-column"
         col3_1_width = 12
         col3_2_width = 12
-        col3_3_width = 12
         
-        row4_class = "mb-3 dbc flex-column"
-        col4_1_width = 12
-        col4_2_width = 12
+        # Row 4 - two columns per row (split over two rows)
+        row4_class = "mb-3 dbc"
+        col4_1_width = 6
+        col4_2_width = 6
+        col4_3_width = 12
+        
+        # Row 5 - full width columns
+        row5_class = "mb-3 dbc flex-column"
+        col5_1_width = 12
+        col5_2_width = 12
         
     elif width < 992:  # Medium devices
         container_style.update({"padding": "10px"})
+        # No changes to default for medium devices
         
     return (
         container_style,
         row1_class, gene_search_col_width, matrix_col_width, transform_col_width,
-        row2_class, col2_1_width, col2_2_width,
-        row3_class, col3_1_width, col3_2_width, col3_3_width,
-        row4_class, col4_1_width, col4_2_width
+        row2_class, correlation_col_width, x_axis_col_width, y_axis_col_width,
+        row3_class, col3_1_width, col3_2_width,
+        row4_class, col4_1_width, col4_2_width, col4_3_width,
+        row5_class, col5_1_width, col5_2_width
     )
 
 # Global variable to track previous state of the range slider
@@ -1646,20 +1706,23 @@ def update_gene_plot_tab3(count_type, selected_gene, selected_metadata, trendlin
             "rin": "RNA Integrity (RIN)",
             "tin_median": "TIN Median",
             "all_reads": "All Reads (Count)",
-            "pass_reads": "Pass Reads (Count)",
-            "trimmed_&_processed_pass_reads": "Trimmed & Processed Pass Reads (Count)",
-            "primary_alignments": "Primary Alignments (Count)",
-            "filtered_primary_alignments_(mapq)": "Filtered Primary Alignments MAPQ ≥ 10 (Count)",
+            "trimmed_&_processed_pass_reads": "Trimmed & Filtered Reads (Count)",
+            "filtered_primary_alignments_(mapq)": "Primary Alignments MAPQ ≥ 10 (Count)",
             "mapping_rate_-_mapq_>=_10_(%)": "Mapping Rate MAPQ ≥ 10 (%)",
             "mapping_rate_(%)": "Mapping Rate (%)",
-            "n50_fastq": "N50 FASTQ (Nucleotides)",
-            "n50_bam": "N50 BAM (Nucleotides)",
-            "median_read_length_fastq": "Median Read Length (FASTQ) (Nucleotides)",
-            "median_read_length_bam": "Median Read Length (BAM) (Nucleotides)",
+            "n50_bam": "N50 (Nucleotides)",
+            "median_read_length_bam": "Median Read Length (Nucleotides)",
             "astrocyte_proportion": "Astrocyte Proportion",
             "oligodendrocyte_proportion": "Oligodendrocyte Proportion",
             "neuronal_proportion": "Neuronal Proportion",
-            "microglia-pvm_proportion": "Microglia-PVM Proportion"
+            "microglia-pvm_proportion": "Microglia-PVM Proportion",
+            "last_mmse_test_score": "MMSE Score",
+            "plaquef": "Plaque Density - Frontal Cortex",
+            "plaquetotal": "Total Plaque Density",
+            "tanglef": "Tangle Density - Frontal Cortex",
+            "tangletotal": "Total Tangle Density",
+            "dementia_years": "Years with Dementia",
+            "demential_age": "Age at Dementia Diagnosis (Years)"
         }
         x_label = var_labels.get(correlation_var, correlation_var)
         

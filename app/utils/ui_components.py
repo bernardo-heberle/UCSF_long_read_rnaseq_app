@@ -10,6 +10,7 @@ def create_gene_search_dropdown(initial_value=None, initial_options=None, id='se
         searchable=True,
         options=initial_options or [],
         value=initial_value,
+        className="axis-dropdown",
         style={
             "background-color": "#ffffff",
             "color": "#333333",
