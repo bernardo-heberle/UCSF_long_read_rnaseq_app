@@ -324,13 +324,10 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, trendline_
             "oligodendrocyte_proportion": "Oligodendrocyte Proportion",
             "neuronal_proportion": "Neuronal Proportion",
             "microglia-pvm_proportion": "Microglia-PVM Proportion",
-            "last_mmse_test_score": "MMSE Score",
             "plaquef": "Plaque Density - Frontal Cortex",
             "plaquetotal": "Total Plaque Density",
             "tanglef": "Tangle Density - Frontal Cortex",
-            "tangletotal": "Total Tangle Density",
-            "dementia_years": "Years with Dementia",
-            "demential_age": "Age at Dementia Diagnosis (Years)"
+            "tangletotal": "Total Tangle Density"
         }
         x_label = var_labels.get(correlation_var, correlation_var)
 
