@@ -87,25 +87,25 @@ def layout():
                 ], width=12, md=4, lg=2, className="mb-3 mx-1"),
             ], id="tab0-info-row", className="mb-5 px-4 justify-content-center"),
             
-            # YouTube Tutorial button
+            # YouTube Tutorial embedded video
             html.Div([
-                html.A(
-                    dbc.Button(
-                        "Video Tutorial for Website Usage",
-                        id="tab0-video-button",
-                        color="primary",
-                        outline=True,
-                        className="px-5 py-4",
+                html.H3("Video Tutorial for Website Usage", 
+                        className="text-center mb-3",
+                        style={"font-weight": "300", "letter-spacing": "0.5px"}),
+                html.Div([
+                    html.Iframe(
+                        src="https://www.youtube.com/embed/DZKYjN3lY-g",
+                        width="100%",
+                        height="400",
                         style={
-                            "font-weight": "600",
-                            "font-size": "1.3rem",
-                            "letter-spacing": "0.5px",
-                            "border-radius": "4px"
-                        }
-                    ),
-                    href="https://www.youtube.com/watch?v=DZKYjN3lY-g",
-                    target="_blank"
-                )
+                            "border": "none",
+                            "border-radius": "8px",
+                            "box-shadow": "0 4px 12px rgba(0,0,0,0.15)"
+                        },
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture",
+                        allowFullScreen=True
+                    )
+                ], className="mx-auto", style={"max-width": "800px"})
             ], className="text-center mb-4"),
         ], className="py-2 mt-3"),
         
