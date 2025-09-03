@@ -102,8 +102,7 @@ def layout():
                             "border-radius": "8px",
                             "box-shadow": "0 4px 12px rgba(0,0,0,0.15)"
                         },
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture",
-                        allowFullScreen=True
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen",
                     )
                 ], className="mx-auto", style={"max-width": "800px"})
             ], className="text-center mb-4"),
