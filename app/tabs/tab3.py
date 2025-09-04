@@ -1573,6 +1573,8 @@ def update_gene_plot_tab3(count_type, selected_gene, selected_metadata, trendlin
         if selected_metadata:
             if len(selected_metadata) == 1:
                 expression_hue = selected_metadata[0]
+                # Filter out nulls for single metadata column
+                expression = expression.filter(~pl.col(expression_hue).is_null())
                 # Generate colors for each group
                 unique_hue_values = expression[expression_hue].unique().sort().to_list()
                 if unique_hue_values:
