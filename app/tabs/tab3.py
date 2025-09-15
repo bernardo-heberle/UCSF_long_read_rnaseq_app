@@ -903,6 +903,7 @@ def layout():
                                             {"label": "All Reads", "value": "all_reads"},
                                             {"label": "Astrocyte Proportion", "value": "astrocyte_proportion"},
                                             {"label": "Brain Weight", "value": "brain_weight_grams"},
+                                            {"label": "Dementia Onset Age (Years)", "value": "demential_age"},
                                             {"label": "Mapping Rate", "value": "mapping_rate_(%)"},
                                             {"label": "Mapping Rate (MAPQ ≥ 10)", "value": "mapping_rate_-_mapq_>=_10_(%)"},
                                             {"label": "Median Read Length", "value": "median_read_length_bam"},
@@ -919,7 +920,6 @@ def layout():
                                             {"label": "Total Plaque Density", "value": "plaquetotal"},
                                             {"label": "Total Tangle Density", "value": "tangletotal"},
                                             {"label": "Trimmed & Filtered Reads", "value": "trimmed_&_processed_pass_reads"},
-                                            {"label": "Dementia Onset Age (Years)", "value": "demential_age"},
                                             {"label": "Years Living with Dementia (Years)", "value": "dementia_years"}
                                         ],
                                         value="expired_age",
