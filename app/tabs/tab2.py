@@ -72,7 +72,7 @@ last_valid_options = []
 last_search_value = None  # Store the last search value
 
 # Default APP gene information
-DEFAULT_APP_GENE_INDEX = 9782
+DEFAULT_APP_GENE_INDEX = 9758
 DEFAULT_APP_GENE_NAME = "APP"
 DEFAULT_APP_GENE_ID = "ENSG00000142192"
 
