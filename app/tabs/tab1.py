@@ -149,11 +149,22 @@ def layout():
                                             id="effect-size-slider-tab1",
                                             min=0.08,
                                             max=1.48,
-                                            step=0.1,
+                                            step=None,
                                             marks={
                                                 0.08: {'label': '0.08', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+                                                0.18: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+                                                0.28: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
                                                 0.38: {'label': '0.38', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+                                                0.48: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+                                                0.58: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+                                                0.68: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+                                                0.78: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+                                                0.88: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+                                                0.98: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
                                                 1.08: {'label': '1.08', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+                                                1.18: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+                                                1.28: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+                                                1.38: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
                                                 1.48: {'label': '1.48', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}}
                                             },
                                             value=0.38,
@@ -1266,8 +1277,19 @@ def update_effect_size_slider_marks(dimensions):
         # Default mark style
         return {
             0.08: {'label': '0.08', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+            0.18: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+            0.28: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
             0.38: {'label': '0.38', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+            0.48: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+            0.58: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+            0.68: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+            0.78: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+            0.88: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+            0.98: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
             1.08: {'label': '1.08', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+            1.18: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+            1.28: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+            1.38: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
             1.48: {'label': '1.48', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}}
         }
     
@@ -1278,8 +1300,19 @@ def update_effect_size_slider_marks(dimensions):
     
     return {
         0.08: {'label': '0.08', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
+        0.18: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
+        0.28: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
         0.38: {'label': '0.38', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
+        0.48: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
+        0.58: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
+        0.68: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
+        0.78: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
+        0.88: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
+        0.98: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
         1.08: {'label': '1.08', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
+        1.18: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
+        1.28: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
+        1.38: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
         1.48: {'label': '1.48', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}}
     }
 
