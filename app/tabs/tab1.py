@@ -1279,8 +1279,7 @@ def update_effect_size_slider_marks(dimensions):
     return {
         0.08: {'label': '0.08', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
         0.38: {'label': '0.38', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
-        0.5: {'label': '0.5', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
-        1.0: {'label': '1.0', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
+        1.08: {'label': '1.0', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
         1.48: {'label': '1.48', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}}
     }
 
