@@ -251,8 +251,8 @@ def get_matrix_dropdown_options():
     """Get formatted dropdown options for different counting methods."""
     # Define options for different counting methods that will use columns from all_transcript_data
     ordered_options = [
-        {'label': 'Total Counts', 'value': 'total'},
         {'label': 'Unique Counts', 'value': 'unique'},
+        {'label': 'Total Counts', 'value': 'total'},
         {'label': 'Full Length Counts', 'value': 'fullLength'}
     ]
     

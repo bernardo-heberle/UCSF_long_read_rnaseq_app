@@ -240,8 +240,8 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, log_transf
         # Set default to APP gene
         selected_gene = DEFAULT_APP_GENE_INDEX
 
-    # If no count type is selected, use total counts by default
-    count_type = count_type if count_type else 'total'
+    # If no count type is selected, use unique counts by default
+    count_type = count_type if count_type else 'unique'
 
     # Default window dimensions if not available yet
     if not window_dimensions:
@@ -415,8 +415,8 @@ def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, se
     if n_clicks is None or not n_clicks or selected_gene is None:
         return no_update
     
-    # If no count type is selected, use total counts by default
-    count_type = count_type if count_type else 'total'
+    # If no count type is selected, use unique counts by default
+    count_type = count_type if count_type else 'unique'
     
     try:
         # Get the gene name for the filename

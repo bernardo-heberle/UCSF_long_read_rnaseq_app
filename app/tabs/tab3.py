@@ -543,8 +543,8 @@ def download_plots_as_svg_tab3(n_clicks, density_fig, gene_level_fig, isoform_fi
     if n_clicks is None or not n_clicks or selected_gene is None:
         return no_update
     
-    # If no count type is selected, use total counts by default
-    count_type = count_type if count_type else 'total'
+    # If no count type is selected, use unique counts by default
+    count_type = count_type if count_type else 'unique'
     
     try:
         # Get the gene name for the filename

@@ -88,10 +88,11 @@ def layout():
                                         dcc.Dropdown(
                                             id="matrix-type-dropdown-tab1",
                                             options=[
+                                                {"label": "Unique Counts", "value": "unique"},
                                                 {"label": "Total Counts", "value": "total"},
-                                                {"label": "Unique Counts", "value": "unique"}
+                                                {"label": "Full Length Counts", "value": "fullLength"}
                                             ],
-                                            value="total",
+                                            value="unique",
                                             clearable=False,
                                             className="mb-2 taller-dropdown",
                                             optionHeight=60,
@@ -1090,8 +1091,8 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
     if n_clicks is None or not n_clicks:
         return no_update
     
-    # If no count type is selected, use total counts by default
-    count_type = count_type if count_type else 'total'
+    # If no count type is selected, use unique counts by default
+    count_type = count_type if count_type else 'unique'
     
     try:
         # Prepare filename base on group comparison
