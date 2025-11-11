@@ -158,7 +158,7 @@ def update_density_plot(selected_gene, options, window_dimensions):
             return fig
 
     except Exception as e:
-        pass
+        print(f"Error updating density plot: {e}")
 
     return fig
 
@@ -196,6 +196,7 @@ def update_search_options(search_value, selected_value):
                     }
                     last_valid_options = [option]  # Just show the current selection
             except Exception as e:
+                print(f"Error getting gene details: {e}")
                 # If we can't get the details, just use the raw ID
                 if selected_value:
                     last_valid_options = [{
@@ -392,6 +393,10 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, log_transf
         return fig
 
     except Exception as e:
+        import traceback
+        trace = traceback.format_exc()
+        print(f"Error updating gene level plot: {e}")
+        print(trace)
         return go.Figure()
 
 @app.callback(
@@ -503,6 +508,7 @@ def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, se
                     isoform_svg = real_fig.to_image(format="svg").decode('utf-8')
                     zipf.writestr(isoform_svg_name, isoform_svg)
                 except Exception as isoform_error:
+                    print(f"Error creating isoform SVG: {isoform_error}")
                     # Create placeholder instead
                     placeholder_fig = go.Figure()
                     placeholder_fig.add_annotation(
@@ -515,6 +521,7 @@ def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, se
                     zipf.writestr(isoform_svg_name, placeholder_svg)
             else:
                 # Create a placeholder if isoform fig is not available
+                print("No isoform figure found, creating placeholder")
                 isoform_svg_name = f"{gene_name}_RNA_isoform_plot_{count_type}.svg"
                 placeholder_fig = go.Figure()
                 placeholder_fig.add_annotation(
@@ -546,6 +553,9 @@ def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, se
         )
             
     except Exception as e:
+        import traceback
+        print(f"Error creating zip archive: {e}")
+        print(traceback.format_exc())
         return no_update
 
 def layout():
@@ -1247,6 +1257,7 @@ def update_slider_range_tab2(selected_gene):
         return max_val, marks, new_value
 
     except Exception as e:
+        print(f"Error updating slider range for gene {selected_gene}: {e}")
         # Fallback to default values in case of error
         marks = {i: str(i) for i in range(1, 11)}
         return 10, marks, [1, 5] 

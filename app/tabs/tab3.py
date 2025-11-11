@@ -165,7 +165,7 @@ def update_density_plot(selected_gene, options, window_dimensions):
             return fig
 
     except Exception as e:
-        pass
+        print(f"Error updating density plot: {e}")
 
     # Return the base scaled figure if error or no data for gene
     return fig
@@ -204,6 +204,7 @@ def update_search_options(search_value, selected_value):
                     }
                     last_valid_options = [option]  # Just show the current selection
             except Exception as e:
+                print(f"Error getting gene details: {e}")
                 # If we can't get the details, just use the raw ID
                 if selected_value:
                     last_valid_options = [{
@@ -391,8 +392,8 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, trendline_
                         # Only update if correlation is a valid number
                         if not np.isnan(corr):
                             subgroup_corr_text = f"{abbreviated_name}: {corr_symbol}={corr:.2f}"
-                        except Exception as corr_e_sub:
-                            pass
+                    except Exception as corr_e_sub:
+                        print(f"Could not calculate correlation for subgroup {subgroup_name}: {corr_e_sub}")
                 
                 # Always add the correlation text (either with value or NA)
                 correlation_texts.append(subgroup_corr_text)
@@ -426,8 +427,8 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, trendline_
                     # Only update if correlation is a valid number
                     if not np.isnan(corr):
                         correlation_text = f"{corr_symbol}={corr:.2f}"
-                    except Exception as corr_e:
-                        pass
+                except Exception as corr_e:
+                    print(f"Could not calculate overall correlation: {corr_e}")
         # --- End Calculate Correlation ---
 
         # Prepare category orders for legend matching correlation annotations
@@ -518,6 +519,10 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, trendline_
         return gene_scatter
             
     except Exception as e:
+        import traceback
+        trace = traceback.format_exc()
+        print(f"Error updating gene level plot: {e}")
+        print(trace)
         return go.Figure()
 
 @app.callback(
@@ -702,6 +707,7 @@ def download_plots_as_svg_tab3(n_clicks, density_fig, gene_level_fig, isoform_fi
                     scatter_svg = real_fig.to_image(format="svg").decode('utf-8')
                     zipf.writestr(scatter_svg_name, scatter_svg)
                 except Exception as scatter_error:
+                    print(f"Error creating isoform scatter SVG: {scatter_error}")
                     # Create placeholder instead
                     placeholder_fig = go.Figure()
                     placeholder_fig.add_annotation(
@@ -761,6 +767,9 @@ def download_plots_as_svg_tab3(n_clicks, density_fig, gene_level_fig, isoform_fi
         )
             
     except Exception as e:
+        import traceback
+        print(f"Error creating zip archive: {e}")
+        print(traceback.format_exc())
         return no_update
 
 def layout():
@@ -1393,6 +1402,9 @@ def update_slider_range_tab3(selected_gene, current_range):
         return max_val, marks, final_range
 
     except Exception as e:
+        import traceback
+        print(f"Error updating slider range for gene {selected_gene}: {e}")
+        print(traceback.format_exc())
         # Fallback to default values in case of error
         marks = {i: str(i) for i in range(1, 11)}
         previous_range[:] = [1, 3] # Reset previous range to 1-3
@@ -1845,7 +1857,7 @@ def update_gene_plot_tab3(count_type, selected_gene, selected_metadata, trendlin
                             if not np.isnan(corr):
                                 subgroup_corr_text = f"{abbreviated_name}: {corr_symbol}={corr:.2f}"
                         except Exception as corr_e_sub:
-                            pass
+                            print(f"Could not calculate correlation for {transcript_id} subgroup {subgroup_name}: {corr_e_sub}")
                     
                     # Always add correlation text (either with value or NA)
                     correlation_texts_facet.append(subgroup_corr_text)
@@ -1880,7 +1892,7 @@ def update_gene_plot_tab3(count_type, selected_gene, selected_metadata, trendlin
                         if not np.isnan(corr):
                             correlation_text_facet = f"{corr_symbol}={corr:.2f}"
                     except Exception as corr_e_facet:
-                        pass
+                        print(f"Could not calculate overall correlation for {transcript_id}: {corr_e_facet}")
 
             # Create annotation for this facet
             facet_annotation = go.layout.Annotation(
@@ -1903,4 +1915,7 @@ def update_gene_plot_tab3(count_type, selected_gene, selected_metadata, trendlin
         return rnapy_fig, scatter_fig, rnapy_fig
 
     except Exception as e:
+        print(f"Error in update_gene_plot_tab3: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return go.Figure(), go.Figure(), None
