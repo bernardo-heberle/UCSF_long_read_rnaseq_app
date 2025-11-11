@@ -60,26 +60,54 @@ def layout():
                             create_content_card(
                                 # Analysis controls content
                                 [
-                                # Row 1: Group comparison and Matrix Type in two columns
+                                # Row 1: Independent Variable, Sex, and Matrix Type in three columns
                                 dbc.Row([
-                                    # Left column - Group comparison dropdown
+                                    # Left column - Independent Variable dropdown
                                     dbc.Col([
-                                        html.Label("Select Groups to Compare:", className="mb-1 tab1-form-label", 
+                                        html.Label("Independent Variable:", className="mb-1 tab1-form-label", 
                                                   id="tab1-comparison-label"),
                                         dcc.Dropdown(
-                                            id="group-comparison-dropdown-tab1",
+                                            id="independent-var-dropdown-tab1",
                                             options=[
-                                                {"label": "Alzheimer's disease vs Control", "value": "ad_vs_ctrl"},
-                                                {"label": "Alzheimer's disease male vs Control male", "value": "ad_male_vs_ctrl_male"},
-                                                {"label": "Alzheimer's disease female vs Control female", "value": "ad_female_vs_ctrl_female"}
+                                                {"label": "Age at Death", "value": "age_at_death"},
+                                                {"label": "Braak Stage Tangles", "value": "braak_stage_tangles"},
+                                                {"label": "Dementia Duration", "value": "dementia_duration"},
+                                                {"label": "Dementia Onset Age", "value": "dementia_onset_age"},
+                                                {"label": "APOE ε2 Dosage", "value": "e2_dosage"},
+                                                {"label": "APOE ε3 Dosage", "value": "e3_dosage"},
+                                                {"label": "APOE ε4 Dosage", "value": "e4_dosage"},
+                                                {"label": "Frontal Lobe Plaques", "value": "frontal_lobe_plaques"},
+                                                {"label": "Frontal Lobe Tangles", "value": "frontal_lobe_tangles"},
+                                                {"label": "LOAD Status", "value": "load_status"},
+                                                {"label": "Total Plaques", "value": "total_plaques"},
+                                                {"label": "Total Tangles", "value": "total_tangles"}
                                             ],
-                                            value="ad_vs_ctrl",
+                                            value="load_status",
                                             clearable=False,
                                             className="mb-2 taller-dropdown",
                                             optionHeight=60,
                                             maxHeight=400
                                         )
-                                    ], width=6),
+                                    ], width=4),
+                                    
+                                    # Middle column - Sex dropdown
+                                    dbc.Col([
+                                        html.Label("Select Sex:", className="mb-1 tab1-form-label", 
+                                                  id="tab1-sex-label"),
+                                        dcc.Dropdown(
+                                            id="sex-dropdown-tab1",
+                                            options=[
+                                                {"label": "All", "value": "all"},
+                                                {"label": "Male", "value": "male"},
+                                                {"label": "Female", "value": "female"}
+                                            ],
+                                            value="all",
+                                            clearable=False,
+                                            className="mb-2 taller-dropdown",
+                                            optionHeight=60,
+                                            maxHeight=400
+                                        )
+                                    ], width=4),
                                     
                                     # Right column - Matrix Type dropdown
                                     dbc.Col([
@@ -89,8 +117,7 @@ def layout():
                                             id="matrix-type-dropdown-tab1",
                                             options=[
                                                 {"label": "Unique Counts", "value": "unique"},
-                                                {"label": "Total Counts", "value": "total"},
-                                                {"label": "Full Length Counts", "value": "fullLength"}
+                                                {"label": "Total Counts", "value": "total"}
                                             ],
                                             value="unique",
                                             clearable=False,
@@ -98,7 +125,7 @@ def layout():
                                             optionHeight=60,
                                             maxHeight=400
                                         )
-                                    ], width=6)
+                                    ], width=4)
                                 ], className="mb-5"),
                                 
                                 # Spacer div with context information
@@ -148,11 +175,12 @@ def layout():
                                                   id="tab1-effect-label"),
                                         dcc.Slider(
                                             id="effect-size-slider-tab1",
-                                            min=0.08,
+                                            min=0,
                                             max=1.48,
                                             step=None,
                                             marks={
-                                                0.08: {'label': '0.08', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+                                                0: {'label': 'None', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+                                                0.08: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
                                                 0.18: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
                                                 0.28: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
                                                 0.38: {'label': '0.38', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
@@ -318,7 +346,8 @@ def layout():
      # Add outputs for analysis controls font sizes and element styling
      Output("pvalue-slider-output-tab1", "style"),
      Output("effect-size-slider-output-tab1", "style"),
-     Output("group-comparison-dropdown-tab1", "className"),
+     Output("independent-var-dropdown-tab1", "className"),
+     Output("sex-dropdown-tab1", "className"),
      Output("matrix-type-dropdown-tab1", "className"),
      Output("search-input-tab1", "className"),
      # Add output for all label styles
@@ -334,6 +363,7 @@ def update_tab1_responsiveness(dimensions):
             "mb-4", 6, 6,
             {"font-size": "16px"},
             {"font-size": "16px"},
+            "mb-3",
             "mb-3",
             "mb-3",
             "mb-3",
@@ -399,6 +429,7 @@ def update_tab1_responsiveness(dimensions):
         dropdown_class,
         dropdown_class,
         dropdown_class,
+        dropdown_class,
         label_style
     )
 
@@ -437,7 +468,6 @@ def update_search_options_tab1(search_value, selected_value):
                     }
                     last_valid_options = [option]  # Just show the current selection
             except Exception as e:
-                print(f"Error getting gene details: {e}")
                 # If we can't get the details, just use the raw ID
                 if selected_value:
                     last_valid_options = [{
@@ -462,37 +492,21 @@ def update_search_options_tab1(search_value, selected_value):
     return results
 
 # Function to determine table names based on selections
-def get_table_names(group_comparison, count_type):
+def get_table_names(count_type):
     """
-    Determine the table names to load based on group comparison and count type
+    Determine the table names to load based on count type
     
     Args:
-        group_comparison (str): Value from group comparison dropdown
         count_type (str): Value from matrix type dropdown
     
     Returns:
         tuple: (deg_table, dte_table, dtu_table)
     """
-    if group_comparison == "ad_vs_ctrl":
-        # For general Alzheimer's vs Control
-        deg_table = "deg"
-        dte_table = f"dte_{count_type}"
-        dtu_table = f"dtu_{count_type}"
-    elif group_comparison == "ad_male_vs_ctrl_male":
-        # For male-specific comparison
-        deg_table = "deg_male"
-        dte_table = f"dte_{count_type}_male"
-        dtu_table = f"dtu_{count_type}_male"
-    elif group_comparison == "ad_female_vs_ctrl_female":
-        # For female-specific comparison
-        deg_table = "deg_female"
-        dte_table = f"dte_{count_type}_female"
-        dtu_table = f"dtu_{count_type}_female"
-    else:
-        # Default fallback
-        deg_table = "deg"
-        dte_table = f"dte_{count_type}"
-        dtu_table = f"dtu_{count_type}"
+    # DEG table is always "degs"
+    deg_table = "degs"
+    # DTE and DTU tables depend on count type
+    dte_table = f"dte_{count_type}"
+    dtu_table = f"dtu_{count_type}"
     
     return deg_table, dte_table, dtu_table
 
@@ -505,7 +519,6 @@ def get_table_columns(table_name):
         result = duck_conn.execute(columns_query)
         return [col[0] for col in result.description]
     except Exception as e:
-        print(f"Error getting columns for {table_name}: {e}")
         return []
 
 # Callback to load data when parameters change
@@ -513,45 +526,45 @@ def get_table_columns(table_name):
     [Output('deg-data-store-tab1', 'data'),
      Output('dte-data-store-tab1', 'data'),
      Output('dtu-data-store-tab1', 'data')],
-    [Input('group-comparison-dropdown-tab1', 'value'),
+    [Input('independent-var-dropdown-tab1', 'value'),
+     Input('sex-dropdown-tab1', 'value'),
      Input('matrix-type-dropdown-tab1', 'value')]
 )
-def load_table_data(group_comparison, count_type):
-    
+def load_table_data(independent_var, sex, count_type):
     
     # Default values if inputs are None
-    group_comparison = group_comparison
-    count_type = count_type
-    
+    independent_var = independent_var if independent_var else "load_status"
+    sex = sex if sex else "all"
+    count_type = count_type if count_type else "unique"
     
     # Get the appropriate table names
-    dge_table, dte_table, dtu_table = get_table_names(group_comparison, count_type)
+    dge_table, dte_table, dtu_table = get_table_names(count_type)
     
     try:       
-        # Get DEG data
+        # Get DEG data filtered by independent_var and sex
         dge_query = f"""
             SELECT *
             FROM "{dge_table}"
+            WHERE independent_var = '{independent_var}' AND sex = '{sex}'
         """
   
-        # Get DTE data
+        # Get DTE data filtered by independent_var and sex
         dte_query = f"""
             SELECT *
             FROM "{dte_table}"
+            WHERE independent_var = '{independent_var}' AND sex = '{sex}'
         """
         
-        # Get DTU data
+        # Get DTU data filtered by independent_var and sex
         dtu_query = f"""
             SELECT *
             FROM "{dtu_table}"
+            WHERE independent_var = '{independent_var}' AND sex = '{sex}'
         """
 
         return dge_query, dte_query, dtu_query
         
     except Exception as e:
-        print(f"Error loading table data: {e}")
-        import traceback
-        print(traceback.format_exc())
         # Return empty data on error
         return None, None, None
 
@@ -562,14 +575,16 @@ def load_table_data(group_comparison, count_type):
 )
 def update_pvalue_output(value):
     p_values = {0: 0.001, 1: 0.01, 2: 0.05, 3: 0.1, 4: 0.2, 5: 0.3}
-    return f"Current p-value threshold: {p_values[value]}"
+    return f"Current threshold: {p_values[value]}"
 
 @app.callback(
     Output('effect-size-slider-output-tab1', 'children'),
     [Input('effect-size-slider-tab1', 'value')]
 )
 def update_effect_size_output(value):
-    return f"Current effect size threshold: {value}"
+    if value == 0:
+        return "No effect size threshold (use p-value only)"
+    return f"Current threshold: {value}"
 
 # Update the plots when data changes
 @app.callback(
@@ -587,21 +602,50 @@ def update_effect_size_output(value):
      Input('pvalue-slider-tab1', 'value'),
      Input('effect-size-slider-tab1', 'value'),
      Input('matrix-type-dropdown-tab1', 'value'),
-     Input('group-comparison-dropdown-tab1', 'value'),
+     Input('independent-var-dropdown-tab1', 'value'),
+     Input('sex-dropdown-tab1', 'value'),
      Input('window-dimensions', 'data')]
 )
-def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx, effect_size, count_type, group_comparison, window_dimensions):
+def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx, effect_size, count_type, independent_var, sex, window_dimensions):
     # Convert p-value index to actual p-value
     p_values = {0: 0.001, 1: 0.01, 2: 0.05, 3: 0.1, 4: 0.2, 5: 0.3}
     pvalue_threshold = p_values[pvalue_idx]
     
-    # Map group comparison values to display text
-    group_comparison_map = {
-        "ad_vs_ctrl": "(AD vs CT)",
-        "ad_male_vs_ctrl_male": "(AD Male vs CT Male)",
-        "ad_female_vs_ctrl_female": "(AD Female vs CT Female)"
+    # Map independent variable values to display text
+    independent_var_map = {
+        "age_at_death": "Age at Death",
+        "braak_stage_tangles": "Braak Stage Tangles",
+        "dementia_duration": "Dementia Duration",
+        "dementia_onset_age": "Dementia Onset Age",
+        "e2_dosage": "APOE ε2 Dosage",
+        "e3_dosage": "APOE ε3 Dosage",
+        "e4_dosage": "APOE ε4 Dosage",
+        "frontal_lobe_plaques": "Frontal Lobe Plaques",
+        "frontal_lobe_tangles": "Frontal Lobe Tangles",
+        "load_status": "LOAD Status",
+        "total_plaques": "Total Plaques",
+        "total_tangles": "Total Tangles"
     }
-    comparison_text = group_comparison_map.get(group_comparison, "")
+    independent_var_text = independent_var_map.get(independent_var, independent_var)
+    
+    # Map sex values to display text
+    sex_map = {
+        "all": "Both Sexes",
+        "male": "Males Only",
+        "female": "Females Only"
+    }
+    sex_text = sex_map.get(sex, sex)
+    
+    # Create comparison text for plot titles
+    comparison_text = f"({independent_var_text}, {sex_text})"
+    
+    # Create interpretation text for the last line of the title
+    if independent_var == "load_status":
+        interpretation_text = "Positive log2 fold change indicates upregulation in LOAD samples"
+        interpretation_text_dtu = "Positive effect size indicates increased transcript usage in LOAD samples"
+    else:
+        interpretation_text = f"Positive log2 fold change indicates positive correlation with {independent_var_text}"
+        interpretation_text_dtu = f"Positive effect size indicates positive correlation with {independent_var_text}"
     
     # Default window dimensions if not available yet
     if not window_dimensions:
@@ -621,40 +665,116 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
     
     try:
         ## Load DEG data into a pandas dataframe
-        dge_data = pd.DataFrame(duck_conn.execute(dge_query).fetchall())
+        dge_cursor = duck_conn.execute(dge_query)
+        dge_columns = [desc[0] for desc in dge_cursor.cursor.description]
+        dge_result = dge_cursor.fetchall()
+        dge_data = pd.DataFrame(dge_result, columns=dge_columns)
+        
+        # Rename effectSize to log2FoldChange for volcano plot compatibility
+        if 'effectSize' in dge_data.columns:
+            dge_data.rename(columns={'effectSize': 'log2FoldChange'}, inplace=True)
+        
+        # Ensure numeric columns are properly typed
+        dge_data['log2FoldChange'] = pd.to_numeric(dge_data['log2FoldChange'], errors='coerce')
+        dge_data['PValue'] = pd.to_numeric(dge_data['PValue'], errors='coerce')
+        dge_data['padj'] = pd.to_numeric(dge_data['padj'], errors='coerce')
+        
+        # Remove rows with NaN p-values to prevent VolcanoPlot errors
+        dge_data = dge_data.dropna(subset=['PValue'])
         
         ## Load DTE data into a pandas dataframe
-        dte_data = pd.DataFrame(duck_conn.execute(dte_query).fetchall())
+        dte_cursor = duck_conn.execute(dte_query)
+        dte_columns = [desc[0] for desc in dte_cursor.cursor.description]
+        dte_result = dte_cursor.fetchall()
+        dte_data = pd.DataFrame(dte_result, columns=dte_columns)
+        
+        # Rename effectSize to log2FoldChange for volcano plot compatibility
+        if 'effectSize' in dte_data.columns:
+            dte_data.rename(columns={'effectSize': 'log2FoldChange'}, inplace=True)
+        
+        # Ensure numeric columns are properly typed
+        dte_data['log2FoldChange'] = pd.to_numeric(dte_data['log2FoldChange'], errors='coerce')
+        dte_data['PValue'] = pd.to_numeric(dte_data['PValue'], errors='coerce')
+        dte_data['padj'] = pd.to_numeric(dte_data['padj'], errors='coerce')
+        
+        # Remove rows with NaN p-values to prevent VolcanoPlot errors
+        dte_data = dte_data.dropna(subset=['PValue'])
         
         ## Load DTU data into a pandas dataframe
-        dtu_data = pd.DataFrame(duck_conn.execute(dtu_query).fetchall())
+        dtu_cursor = duck_conn.execute(dtu_query)
+        dtu_columns = [desc[0] for desc in dtu_cursor.cursor.description]
+        dtu_result = dtu_cursor.fetchall()
+        dtu_data = pd.DataFrame(dtu_result, columns=dtu_columns)
+        
+        # Rename effectSize to estimates and PValue to pval, padj to regular_FDR for volcano plot compatibility
+        if 'effectSize' in dtu_data.columns:
+            dtu_data.rename(columns={'effectSize': 'estimates', 'PValue': 'pval', 'padj': 'regular_FDR'}, inplace=True)
+        
+        # Ensure numeric columns are properly typed
+        dtu_data['estimates'] = pd.to_numeric(dtu_data['estimates'], errors='coerce')
+        dtu_data['pval'] = pd.to_numeric(dtu_data['pval'], errors='coerce')
+        dtu_data['regular_FDR'] = pd.to_numeric(dtu_data['regular_FDR'], errors='coerce')
+        
+        # Remove rows with NaN p-values to prevent VolcanoPlot errors
+        dtu_data = dtu_data.dropna(subset=['pval'])
+        
+        # Check if any dataframes are empty
+        if dge_data.empty or dte_data.empty or dtu_data.empty:
+            empty_msg = []
+            if dge_data.empty:
+                empty_msg.append("DEG")
+            if dte_data.empty:
+                empty_msg.append("DTE")
+            if dtu_data.empty:
+                empty_msg.append("DTU")
+            
+            placeholder = html.Div(
+                html.P(f"No data available for the selected filters: {', '.join(empty_msg)} tables are empty. Try different parameters.",
+                      style={"color": "#666666", "margin": 0, "text-align": "center", "padding": "20px"}),
+                style={
+                    "height": "100%",
+                    "width": "100%",
+                    "display": "flex",
+                    "justify-content": "center",
+                    "align-items": "center",
+                    "min-height": f"{plot_height}px",
+                    "background-color": "#f8f9fa",
+                    "border-radius": "6px"
+                }
+            )
+            empty_fig = {}
+            return placeholder, placeholder, placeholder, empty_fig, empty_fig, empty_fig
 
         # Calculate significance lines based on user-selected thresholds
         dge_sig_line = -np.log10(dge_data.loc[dge_data['padj'] < pvalue_threshold]['PValue'].max() + 0.000000001) \
             if not dge_data.loc[dge_data['padj'] < pvalue_threshold].empty else False
         dte_sig_line = -np.log10(dte_data.loc[dte_data['padj'] < pvalue_threshold]['PValue'].max() + 0.000000001) \
             if not dte_data.loc[dte_data['padj'] < pvalue_threshold].empty else False
+        # DTU now uses 'pval' and 'regular_FDR' columns
         dtu_sig_line = -np.log10(dtu_data.loc[dtu_data['regular_FDR'] < pvalue_threshold]['pval'].max() + 0.000000001) \
             if not dtu_data.loc[dtu_data['regular_FDR'] < pvalue_threshold].empty else False
+        # Create volcano plot with or without effect size lines
+        # When effect_size is 0, [-effect_size, effect_size] = [0, 0]
+        # This means all points (regardless of fold change) above p-value threshold are highlighted
         volcano_plot_dge = dashbio.VolcanoPlot(
-                dataframe=dge_data,
-                effect_size='log2FoldChange',
-                p='PValue',
-                xlabel='log2 Fold Change',
-                ylabel='-log10(p)',
-                genomewideline_value=dge_sig_line,
-                genomewideline_color='black',
-                effect_size_line=[-effect_size, effect_size],
-                effect_size_line_color='black',
-                highlight_color="#FF6692",
-                col="#19D3F3",
-                point_size=max(6, int(8 * scaling_factor)),  # Responsive point size
-                effect_size_line_width=2,
-                genomewideline_width=2,
-                highlight=False if dge_sig_line is False else True,
-                gene='gene_name',
-                snp=None
-            )
+            dataframe=dge_data,
+            effect_size='log2FoldChange',
+            p='PValue',
+            xlabel='log2 Fold Change',
+            ylabel='-log10(p)',
+            genomewideline_value=dge_sig_line,
+            genomewideline_color='black',
+            effect_size_line=[-effect_size, effect_size],
+            effect_size_line_color='rgba(0,0,0,0)' if effect_size == 0 else 'black',  # Invisible when no threshold
+            highlight_color="#FF6692",
+            col="#19D3F3",
+            point_size=max(6, int(8 * scaling_factor)),
+            effect_size_line_width=0 if effect_size == 0 else 2,  # Hide lines when no threshold
+            genomewideline_width=2,
+            highlight=False if dge_sig_line is False else True,
+            gene='gene_name',
+            snp=None
+        )
 
         # Update trace names for proper legend
         for trace in volcano_plot_dge.data:
@@ -733,10 +853,51 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
                     style={'height': f'{plot_height}px', 'width': '100%'}  # Responsive height
                 )
         
+        # Calculate axis ranges
+        # X-axis: extend at least 0.05 beyond the effect size threshold
+        if effect_size == 0:
+            # No effect size threshold - use data range with padding
+            if not dge_data.empty:
+                data_x_min = dge_data['log2FoldChange'].min()
+                data_x_max = dge_data['log2FoldChange'].max()
+                dge_x_min = data_x_min - 0.1
+                dge_x_max = data_x_max + 0.1
+            else:
+                dge_x_min = -2.0
+                dge_x_max = 2.0
+        else:
+            # With effect size threshold
+            dge_x_min = -(effect_size + 0.05)
+            dge_x_max = effect_size + 0.05
+            # Adjust if data extends beyond this range
+            if not dge_data.empty:
+                data_x_min = dge_data['log2FoldChange'].min()
+                data_x_max = dge_data['log2FoldChange'].max()
+                dge_x_min = min(dge_x_min, data_x_min - 0.1)
+                dge_x_max = max(dge_x_max, data_x_max + 0.1)
+        
+        # Make x-axis symmetrical around 0 and add cushion
+        dge_x_range = max(abs(dge_x_min), abs(dge_x_max)) + 0.1
+        dge_x_min = -dge_x_range
+        dge_x_max = dge_x_range
+        
+        # Y-axis: go from 0 to at least 0.5 above the significance line
+        dge_y_max = (dge_sig_line + 0.5) if dge_sig_line is not False else 5.0
+        # Adjust if data extends beyond this range
+        if not dge_data.empty and 'PValue' in dge_data.columns:
+            data_y_max = -np.log10(dge_data['PValue'].replace(0, 1e-300).min())
+            dge_y_max = max(dge_y_max, data_y_max + 0.5)
+        
+        # Create subtitle based on thresholds
+        if effect_size == 0:
+            subtitle_text = f"{'No q-value threshold (no significant genes)' if dge_sig_line is False else f'Horizontal line shows significance cutoff (q-value < {pvalue_threshold})'}"
+        else:
+            subtitle_text = f"Vertical lines at |log2 fold change| = {effect_size} and {'q-value threshold not shown (no significant genes)' if dge_sig_line is False else f'horizontal line shows significance cutoff (q-value < {pvalue_threshold})'}"
+        
         # Update DGE plot title and subtitle
         dge_plot.figure.update_layout(
             title={
-                'text': f"<b>Total Counts Differential Gene Expression Volcano Plot {comparison_text}</b><br><span style='font-size:{subtitle_size}px'>Vertical lines at |log2 fold change| = {effect_size} and {'q-value threshold not shown (no significant genes)' if dge_sig_line is False else f'horizontal line shows significance cutoff (q-value < {pvalue_threshold})'}</span><br><span style='font-size:{base_font_size}px'>Positive log2 fold change indicates higher expression in AD</span>",
+                'text': f"<b>Differential Gene Expression Volcano Plot {comparison_text}</b><br><span style='font-size:{subtitle_size}px'>{subtitle_text}</span><br><span style='font-size:{base_font_size}px'>{interpretation_text}</span>",
                 'y':0.96,
                 'x':0.5,
                 'xanchor': 'center',
@@ -754,35 +915,55 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
             ),
             template='ggplot2',
             xaxis=dict(
+                range=[dge_x_min, dge_x_max],
                 tickfont=dict(size=tick_label_size),
                 title=dict(text='log2 Fold Change', font=dict(size=axis_label_size))
             ),
             yaxis=dict(
+                range=[-0.2, dge_y_max],
                 tickfont=dict(size=tick_label_size),
                 title=dict(text='-log10(p)', font=dict(size=axis_label_size))
             )
         )
-
-        volcano_plot_dte = dashbio.VolcanoPlot(
-                dataframe=dte_data,
-                effect_size='log2FoldChange',
-                p='PValue',
-                xlabel='log2 Fold Change',
-                ylabel='-log10(p)',
-                genomewideline_value=dte_sig_line,
-                genomewideline_color='black',
-                effect_size_line=[-effect_size, effect_size],
-                effect_size_line_color='black',
-                highlight_color="#FF6692",
-                col="#19D3F3",
-                effect_size_line_width=2,
-                genomewideline_width=2,
-                point_size=max(6, int(8 * scaling_factor)),  # Responsive point size
-                highlight=False if dte_sig_line is False else True,
-                gene='gene_name',
-                annotation='transcript_id',
-                snp=None
+        
+        # Add annotation if no entries meet FDR threshold
+        if dge_sig_line is False:
+            dge_plot.figure.add_annotation(
+                text=f"No genes meet FDR threshold (q < {pvalue_threshold})",
+                xref="paper", yref="paper",
+                x=0.5, y=0.98,
+                xanchor='center', yanchor='top',
+                showarrow=False,
+                font=dict(size=int(base_font_size * 0.9), color="red", family="Arial Black"),
+                bgcolor="rgba(255, 255, 255, 0.8)",
+                bordercolor="red",
+                borderwidth=2,
+                borderpad=4
             )
+
+        # Create DTE volcano plot
+        # When effect_size is 0, [-effect_size, effect_size] = [0, 0]
+        # This means all points (regardless of fold change) above p-value threshold are highlighted
+        volcano_plot_dte = dashbio.VolcanoPlot(
+            dataframe=dte_data,
+            effect_size='log2FoldChange',
+            p='PValue',
+            xlabel='log2 Fold Change',
+            ylabel='-log10(p)',
+            genomewideline_value=dte_sig_line,
+            genomewideline_color='black',
+            effect_size_line=[-effect_size, effect_size],
+            effect_size_line_color='rgba(0,0,0,0)' if effect_size == 0 else 'black',  # Invisible when no threshold
+            highlight_color="#FF6692",
+            col="#19D3F3",
+            genomewideline_width=2,
+            effect_size_line_width=0 if effect_size == 0 else 2,  # Hide lines when no threshold
+            point_size=max(6, int(8 * scaling_factor)),
+            highlight=False if dte_sig_line is False else True,
+            gene='gene_name',
+            annotation='transcript_id',
+            snp=None
+        )
         
         # Update trace names for proper legend
         for trace in volcano_plot_dte.data:
@@ -862,10 +1043,51 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
         )
         
 
+        # Calculate axis ranges for DTE
+        # X-axis: extend at least 0.05 beyond the effect size threshold
+        if effect_size == 0:
+            # No effect size threshold - use data range with padding
+            if not dte_data.empty:
+                data_x_min = dte_data['log2FoldChange'].min()
+                data_x_max = dte_data['log2FoldChange'].max()
+                dte_x_min = data_x_min - 0.1
+                dte_x_max = data_x_max + 0.1
+            else:
+                dte_x_min = -2.0
+                dte_x_max = 2.0
+        else:
+            # With effect size threshold
+            dte_x_min = -(effect_size + 0.05)
+            dte_x_max = effect_size + 0.05
+            # Adjust if data extends beyond this range
+            if not dte_data.empty:
+                data_x_min = dte_data['log2FoldChange'].min()
+                data_x_max = dte_data['log2FoldChange'].max()
+                dte_x_min = min(dte_x_min, data_x_min - 0.1)
+                dte_x_max = max(dte_x_max, data_x_max + 0.1)
+        
+        # Make x-axis symmetrical around 0 and add cushion
+        dte_x_range = max(abs(dte_x_min), abs(dte_x_max)) + 0.1
+        dte_x_min = -dte_x_range
+        dte_x_max = dte_x_range
+        
+        # Y-axis: go from 0 to at least 0.5 above the significance line
+        dte_y_max = (dte_sig_line + 0.5) if dte_sig_line is not False else 5.0
+        # Adjust if data extends beyond this range
+        if not dte_data.empty and 'PValue' in dte_data.columns:
+            data_y_max = -np.log10(dte_data['PValue'].replace(0, 1e-300).min())
+            dte_y_max = max(dte_y_max, data_y_max + 0.5)
+        
+        # Create DTE subtitle based on thresholds
+        if effect_size == 0:
+            dte_subtitle = f"{'No q-value threshold (no significant transcripts)' if dte_sig_line is False else f'Horizontal line shows significance cutoff (q-value < {pvalue_threshold})'}"
+        else:
+            dte_subtitle = f"Vertical lines at |log2 fold change| = {effect_size} and {'q-value threshold not shown (no significant transcripts)' if dte_sig_line is False else f'horizontal line shows significance cutoff (q-value < {pvalue_threshold})'}"
+        
         # Update DTE plot title and subtitle
         dte_plot.figure.update_layout(
             title={
-                'text': f"<b>{count_type.capitalize()} Counts Differential Transcript Expression Volcano Plot {comparison_text}</b><br><span style='font-size:{subtitle_size}px'>Vertical lines at |log2 fold change| = {effect_size} and {'q-value threshold not shown (no significant transcripts)' if dte_sig_line is False else f'horizontal line shows significance cutoff (q-value < {pvalue_threshold})'}</span><br><span style='font-size:{base_font_size}px'>Positive log2 fold change indicates higher transcript expression in AD</span>",
+                'text': f"<b>{count_type.capitalize()} Counts Differential Transcript Expression Volcano Plot {comparison_text}</b><br><span style='font-size:{subtitle_size}px'>{dte_subtitle}</span><br><span style='font-size:{base_font_size}px'>{interpretation_text}</span>",
                 'y':0.96,
                 'x':0.5,
                 'xanchor': 'center',
@@ -883,16 +1105,35 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
             ),
             template='ggplot2',
             xaxis=dict(
+                range=[dte_x_min, dte_x_max],
                 tickfont=dict(size=tick_label_size),
                 title=dict(text='log2 Fold Change', font=dict(size=axis_label_size))
             ),
             yaxis=dict(
+                range=[-0.2, dte_y_max],
                 tickfont=dict(size=tick_label_size),
                 title=dict(text='-log10(p)', font=dict(size=axis_label_size))
             )
         )
         
-        # First create the volcano plot without immediately setting the range
+        # Add annotation if no entries meet FDR threshold
+        if dte_sig_line is False:
+            dte_plot.figure.add_annotation(
+                text=f"No transcripts meet FDR threshold (q < {pvalue_threshold})",
+                xref="paper", yref="paper",
+                x=0.5, y=0.98,
+                xanchor='center', yanchor='top',
+                showarrow=False,
+                font=dict(size=int(base_font_size * 0.9), color="red", family="Arial Black"),
+                bgcolor="rgba(255, 255, 255, 0.8)",
+                bordercolor="red",
+                borderwidth=2,
+                borderpad=4
+            )
+        
+        # Create DTU volcano plot
+        # When effect_size is 0, [-effect_size, effect_size] = [0, 0]
+        # This means all points (regardless of effect size) above p-value threshold are highlighted
         volcano_plot_dtu = dashbio.VolcanoPlot(
             dataframe=dtu_data,
             effect_size='estimates',
@@ -902,12 +1143,12 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
             genomewideline_value=dtu_sig_line,
             genomewideline_color='black',
             effect_size_line=[-effect_size, effect_size],
-            effect_size_line_color='black',
+            effect_size_line_color='rgba(0,0,0,0)' if effect_size == 0 else 'black',  # Invisible when no threshold
             highlight_color="#FF6692",
             col="#19D3F3",
             genomewideline_width=2,
-            effect_size_line_width=2,
-            point_size=max(6, int(8 * scaling_factor)),  # Responsive point size
+            effect_size_line_width=0 if effect_size == 0 else 2,  # Hide lines when no threshold
+            point_size=max(6, int(8 * scaling_factor)),
             highlight=False if dtu_sig_line is False else True,
             gene='gene_name',
             annotation='transcript_id',
@@ -985,19 +1226,55 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
                 # Move the selected gene trace to the front for better hoverability
                 volcano_plot_dtu.data = list(volcano_plot_dtu.data[:-1]) + [volcano_plot_dtu.data[-1]]
 
+        # Calculate axis ranges for DTU
+        # X-axis: extend at least 0.05 beyond the effect size threshold
+        if effect_size == 0:
+            # No effect size threshold - use data range with padding
+            if not dtu_data.empty:
+                data_x_min = dtu_data['estimates'].min()
+                data_x_max = dtu_data['estimates'].max()
+                dtu_x_min = data_x_min - 0.1
+                dtu_x_max = data_x_max + 0.1
+            else:
+                dtu_x_min = -2.0
+                dtu_x_max = 2.0
+        else:
+            # With effect size threshold
+            dtu_x_min = -(effect_size + 0.05)
+            dtu_x_max = effect_size + 0.05
+            # Adjust if data extends beyond this range
+            if not dtu_data.empty:
+                data_x_min = dtu_data['estimates'].min()
+                data_x_max = dtu_data['estimates'].max()
+                dtu_x_min = min(dtu_x_min, data_x_min - 0.1)
+                dtu_x_max = max(dtu_x_max, data_x_max + 0.1)
+        
+        # Make x-axis symmetrical around 0 and add cushion
+        dtu_x_range = max(abs(dtu_x_min), abs(dtu_x_max)) + 0.1
+        dtu_x_min = -dtu_x_range
+        dtu_x_max = dtu_x_range
+        
+        # Y-axis: go from 0 to at least 0.5 above the significance line
+        dtu_y_max = (dtu_sig_line + 0.5) if dtu_sig_line is not False else 5.0
+        # Adjust if data extends beyond this range
+        if not dtu_data.empty and 'pval' in dtu_data.columns:
+            data_y_max = -np.log10(dtu_data['pval'].replace(0, 1e-300).min())
+            dtu_y_max = max(dtu_y_max, data_y_max + 0.5)
+        
         # Now update the layout, keeping the horizontal line
         volcano_plot_dtu.update_layout(
             xaxis=dict(
-                range=[-2.5, 2.5],
+                range=[dtu_x_min, dtu_x_max],
                 tickfont=dict(size=tick_label_size),
                 title=dict(text='Effect Size', font=dict(size=axis_label_size))
             ),
             yaxis=dict(
+                range=[-0.2, dtu_y_max],
                 tickfont=dict(size=tick_label_size),
                 title=dict(text='-log10(p)', font=dict(size=axis_label_size))
             ),
             title={
-                'text': f"<b>{count_type.capitalize()} Counts Differential Transcript Usage Volcano Plot {comparison_text}</b><br><span style='font-size:{subtitle_size}px'>Vertical lines at |Effect Size| = {effect_size} and {'q-value threshold not shown (no significant transcripts)' if dtu_sig_line is False else f'horizontal line shows significance cutoff (q-value < {pvalue_threshold})'}</span><br><span style='font-size:{base_font_size}px'>Positive effect size indicates higher transcript usage in AD</span>",
+                'text': f"<b>{count_type.capitalize()} Counts Differential Transcript Usage Volcano Plot {comparison_text}</b><br><span style='font-size:{subtitle_size}px'>{'No q-value threshold (no significant transcripts)' if dtu_sig_line is False else f'Horizontal line shows significance cutoff (q-value < {pvalue_threshold})'}{'' if effect_size == 0 else f' and vertical lines at |Effect Size| = {effect_size}'}</span><br><span style='font-size:{base_font_size}px'>{interpretation_text_dtu}</span>",
                 'y':0.96,
                 'x':0.5,
                 'xanchor': 'center',
@@ -1021,9 +1298,9 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
             # This adds a horizontal line that spans the full x-axis range
             volcano_plot_dtu.add_shape(
                 type="line",
-                x0=-2.5,  # Start at the left edge of our manual range
+                x0=dtu_x_min,  # Start at the left edge of our dynamic range
                 y0=dtu_sig_line,
-                x1=2.5,   # End at the right edge of our manual range
+                x1=dtu_x_max,   # End at the right edge of our dynamic range
                 y1=dtu_sig_line,
                 line=dict(
                     color="black",
@@ -1031,6 +1308,21 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
                     dash="dash",  # Make the line dashed
                 ),
                 layer="above"  # Place the line above the data points
+            )
+        
+        # Add annotation if no entries meet FDR threshold
+        if dtu_sig_line is False:
+            volcano_plot_dtu.add_annotation(
+                text=f"No transcripts meet FDR threshold (q < {pvalue_threshold})",
+                xref="paper", yref="paper",
+                x=0.5, y=0.98,
+                xanchor='center', yanchor='top',
+                showarrow=False,
+                font=dict(size=int(base_font_size * 0.9), color="red", family="Arial Black"),
+                bgcolor="rgba(255, 255, 255, 0.8)",
+                bordercolor="red",
+                borderwidth=2,
+                borderpad=4
             )
 
         # Now create the dcc.Graph with our modified figure
@@ -1043,10 +1335,6 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
         return dge_plot, dte_plot, dtu_plot, volcano_plot_dge, volcano_plot_dte, volcano_plot_dtu
         
     except Exception as e:
-        import traceback
-        print(f"Error updating plots: {e}")
-        print(traceback.format_exc())
-
         placeholder = html.Div(
             html.P("Please select analysis parameters to display results",
                   style={"color": "#666666", "margin": 0}),
@@ -1072,10 +1360,11 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
     [State('dge-graph', 'figure'),
      State('dte-graph', 'figure'),
      State('dtu-graph', 'figure'),
-     State('group-comparison-dropdown-tab1', 'value'),
+     State('independent-var-dropdown-tab1', 'value'),
+     State('sex-dropdown-tab1', 'value'),
      State('matrix-type-dropdown-tab1', 'value')]
 )
-def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_comparison, count_type):
+def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, independent_var, sex, count_type):
     from dash import dcc, no_update
     import tempfile
     import zipfile
@@ -1095,13 +1384,27 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
     count_type = count_type if count_type else 'unique'
     
     try:
-        # Prepare filename base on group comparison
-        group_comparison_map = {
-            "ad_vs_ctrl": "AD_vs_CT",
-            "ad_male_vs_ctrl_male": "AD_Male_vs_CT_Male",
-            "ad_female_vs_ctrl_female": "AD_Female_vs_CT_Female"
+        # Prepare filename base on independent variable and sex
+        independent_var_map = {
+            "age_at_death": "Age_at_Death",
+            "braak_stage_tangles": "Braak_Stage_Tangles",
+            "dementia_duration": "Dementia_Duration",
+            "dementia_onset_age": "Dementia_Onset_Age",
+            "e2_dosage": "APOE_e2_Dosage",
+            "e3_dosage": "APOE_e3_Dosage",
+            "e4_dosage": "APOE_e4_Dosage",
+            "frontal_lobe_plaques": "Frontal_Lobe_Plaques",
+            "frontal_lobe_tangles": "Frontal_Lobe_Tangles",
+            "load_status": "LOAD_Status",
+            "total_plaques": "Total_Plaques",
+            "total_tangles": "Total_Tangles"
         }
-        comparison_text = group_comparison_map.get(group_comparison, "AD_vs_CT")
+        sex_map = {
+            "all": "Both_Sexes",
+            "male": "Males",
+            "female": "Females"
+        }
+        comparison_text = f"{independent_var_map.get(independent_var, independent_var)}_{sex_map.get(sex, sex)}"
         
         # Create a temporary directory for our files
         temp_dir = tempfile.mkdtemp()
@@ -1142,11 +1445,8 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
                 tmp_svg = os.path.join(temp_dir, dge_svg_name)
                 fig.write_image(tmp_svg, format="svg")
                 zipf.write(tmp_svg, arcname=dge_svg_name)
-                print("DGE plot added to zip.")
                 os.remove(tmp_svg)
                 pio.kaleido.scope._shutdown_kaleido()
-            else:
-                print("No DGE figure found")
             
             # DTE Plot
             if dte_fig:
@@ -1179,11 +1479,8 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
                 tmp_svg = os.path.join(temp_dir, dte_svg_name)
                 fig.write_image(tmp_svg, format="svg")
                 zipf.write(tmp_svg, arcname=dte_svg_name)
-                print("DTE plot added to zip.")
                 os.remove(tmp_svg)
                 pio.kaleido.scope._shutdown_kaleido()
-            else:
-                print("No DTE figure found")
             
             # DTU Plot
             if dtu_fig:
@@ -1216,11 +1513,8 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
                 tmp_svg = os.path.join(temp_dir, dtu_svg_name)
                 fig.write_image(tmp_svg, format="svg")
                 zipf.write(tmp_svg, arcname=dtu_svg_name)
-                print("DTU plot added to zip.")
                 os.remove(tmp_svg)
                 pio.kaleido.scope._shutdown_kaleido()
-            else:
-                print("No DTU figure found")
         
         ## Write file
         out = dcc.send_file(zip_path)
@@ -1232,9 +1526,6 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
         return out
             
     except Exception as e:
-        import traceback
-        print(f"Error creating zip archive: {e}")
-        print(traceback.format_exc())
         return no_update
 
 # Update the p-value slider to have responsive font size
@@ -1277,7 +1568,8 @@ def update_effect_size_slider_marks(dimensions):
     if not dimensions:
         # Default mark style
         return {
-            0.08: {'label': '0.08', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+            0: {'label': 'None', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
+            0.08: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
             0.18: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
             0.28: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
             0.38: {'label': '0.38', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': '18px'}},
@@ -1300,7 +1592,8 @@ def update_effect_size_slider_marks(dimensions):
     font_size = max(16, int(18 * scaling_factor))
     
     return {
-        0.08: {'label': '0.08', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
+        0: {'label': 'None', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
+        0.08: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
         0.18: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
         0.28: {'label': '', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
         0.38: {'label': '0.38', 'style': {'color': '#495057', 'font-weight': '500', 'font-size': f'{font_size}px'}},
@@ -1337,6 +1630,7 @@ def update_effect_size_tooltip(dimensions):
 # Update all form labels with the same style
 @app.callback(
     [Output("tab1-comparison-label", "style"),
+     Output("tab1-sex-label", "style"),
      Output("tab1-matrix-label", "style"),
      Output("tab1-pvalue-label", "style"),
      Output("tab1-effect-label", "style"),
@@ -1348,14 +1642,14 @@ def update_form_labels(form_style):
     if not form_style or form_style.get("display") == "none":
         # Default style - font-weight and color are set in className 
         default_style = {"font-weight": "600", "color": "#495057", "font-size": "18px", "margin-bottom": "2px"}
-        return default_style, default_style, default_style, default_style, default_style, default_style
+        return default_style, default_style, default_style, default_style, default_style, default_style, default_style
     
     # Add margin-bottom to make more compact
     compact_style = dict(form_style)
     compact_style["margin-bottom"] = "2px"
     
     # Return the same style for all labels
-    return compact_style, compact_style, compact_style, compact_style, compact_style, compact_style
+    return compact_style, compact_style, compact_style, compact_style, compact_style, compact_style, compact_style
 
 # Add a callback to adjust the height of the Analysis Controls content card
 @app.callback(

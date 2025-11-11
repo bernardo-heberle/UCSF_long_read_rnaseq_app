@@ -6,4 +6,4 @@ from app import app as dash_app, server
 
 if __name__ == "__main__":
     # For local development only
-    dash_app.run_server(debug=True)
+    dash_app.run_server(debug=False)
