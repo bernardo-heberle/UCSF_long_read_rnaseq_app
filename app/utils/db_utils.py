@@ -82,56 +82,7 @@ GENE_INDEX_LOADED = False  # Flag to track if the gene index is loaded
 GENE_INDEX_LOADING = False  # Flag to track if the gene index is currently loading
 
 # For RSID searching
-ALL_RSIDS = {}  # Change to dictionary for faster lookups
-RSID_INDEX_LOADED = False
-RSID_INDEX_LOADING = False
-RSID_SEARCH_CACHE = {}  # Add cache for search results
-
-class TrieNode:
-    def __init__(self):
-        self.children = {}
-        self.is_end = False
-        self.value = None
-
-class Trie:
-    def __init__(self):
-        self.root = TrieNode()
-    
-    def insert(self, key, value):
-        node = self.root
-        for char in key:
-            if char not in node.children:
-                node.children[char] = TrieNode()
-            node = node.children[char]
-        node.is_end = True
-        node.value = value
-    
-    def find_prefix_matches(self, prefix, max_results=10):
-        results = []
-        node = self.root
-        
-        # Navigate to the prefix node
-        for char in prefix:
-            if char not in node.children:
-                return results
-            node = node.children[char]
-        
-        # Collect all matches from this node
-        def collect_matches(node):
-            if len(results) >= max_results:
-                return
-            if node.is_end:
-                results.append(node.value)
-            for child in node.children.values():
-                collect_matches(child)
-        
-        collect_matches(node)
-        return results
-
-# Add after the global variables
-RSID_TRIE = Trie()  # Trie for RSID prefix matching
-SORTED_RSIDS = []  # Sorted list for binary search
-RSID_BINARY_SEARCH_CACHE = {}  # Cache for binary search results
+RSID_SEARCH_CACHE = {}  # Cache for search results
 
 def _load_gene_index_thread():
     """Background thread to load gene index"""
@@ -498,21 +449,15 @@ def get_gene_data_with_metadata(gene_index, with_polars=True, limit=100):
 
 def clear_cache():
     """Clear all cached data"""
-    global GENE_INFO_CACHE, MATRIX_DATA_CACHE, SEARCH_RESULTS_CACHE, ALL_GENES, GENE_INDEX_LOADED, GENE_INDEX_LOADING
-    global ALL_RSIDS, RSID_INDEX_LOADED, RSID_INDEX_LOADING, RSID_SEARCH_CACHE, RSID_TRIE, SORTED_RSIDS, RSID_BINARY_SEARCH_CACHE
+    global GENE_INFO_CACHE, MATRIX_DATA_CACHE, SEARCH_RESULTS_CACHE, ALL_GENES, GENE_INDEX_LOADED, RSID_SEARCH_CACHE
     
     GENE_INFO_CACHE = {}
     MATRIX_DATA_CACHE = {}
     SEARCH_RESULTS_CACHE = {}
     ALL_GENES = []
     GENE_INDEX_LOADED = False
-    ALL_RSIDS = {}
-    RSID_INDEX_LOADED = False
     RSID_SEARCH_CACHE = {}
-    RSID_TRIE = Trie()
-    SORTED_RSIDS = []
-    RSID_BINARY_SEARCH_CACHE = {}
-    # Don't reset GENE_INDEX_LOADING or RSID_INDEX_LOADING here as it might interfere with ongoing operations
+    # Don't reset GENE_INDEX_LOADING here as it might interfere with ongoing operations
 
 # Cleanup function to call when the app shuts down
 def cleanup():
@@ -615,98 +560,34 @@ def get_total_gene_data_with_metadata(gene_index, with_polars=True, limit=None):
         return df
 
 
-def binary_search_prefix(prefix, max_results=10):
-    """Binary search for prefix matches in sorted RSIDs list."""
-    if not SORTED_RSIDS:
-        return []
-    
-    # Check cache first
-    if prefix in RSID_BINARY_SEARCH_CACHE:
-        return RSID_BINARY_SEARCH_CACHE[prefix]
-    
-    results = []
-    left, right = 0, len(SORTED_RSIDS) - 1
-    
-    # Find the first occurrence of the prefix
-    while left <= right:
-        mid = (left + right) // 2
-        if SORTED_RSIDS[mid].startswith(prefix):
-            # Found a match, now collect all matches
-            results.append(ALL_RSIDS[SORTED_RSIDS[mid]])
-            # Check left side
-            left_idx = mid - 1
-            while left_idx >= 0 and SORTED_RSIDS[left_idx].startswith(prefix):
-                results.append(ALL_RSIDS[SORTED_RSIDS[left_idx]])
-                left_idx -= 1
-            # Check right side
-            right_idx = mid + 1
-            while right_idx < len(SORTED_RSIDS) and SORTED_RSIDS[right_idx].startswith(prefix):
-                results.append(ALL_RSIDS[SORTED_RSIDS[right_idx]])
-                right_idx += 1
-            break
-        elif SORTED_RSIDS[mid] < prefix:
-            left = mid + 1
-        else:
-            right = mid - 1
-    
-    # Limit results
-    results = results[:max_results]
-    
-    # Cache the results
-    RSID_BINARY_SEARCH_CACHE[prefix] = results
-    return results
-
-def search_rsids(search_value, previous_search=None):
+def search_rsids(search_value):
     """
-    Search for RSIDs using optimized in-memory index.
-    Only performs prefix matching for RSIDs.
+    Search for RSIDs using database query with caching.
     
     Args:
         search_value (str): The current search value
-        previous_search (str): The previous search value, not used in this implementation
+        
+    Returns:
+        False if no search was performed (empty search_value)
+        [] if search performed but no results found
+        list of dicts if results found
     """
+    # No search value means no search attempted
     if not search_value:
-        return []
+        return False
     
     # Check cache first
     cache_key = search_value.lower()
     if cache_key in RSID_SEARCH_CACHE:
         return RSID_SEARCH_CACHE[cache_key]
     
-    # If no RSIDs, fall back to database search
-    if not ALL_RSIDS:
-        return _search_rsids_database(search_value)
+    # Perform database search with original search_value
+    results = _search_rsids_database(search_value)
     
-    # Convert to lowercase once
-    search_value = search_value.lower()
+    # Cache the results (could be empty list or list with results)
+    RSID_SEARCH_CACHE[cache_key] = results
     
-    # Use dictionary lookups for exact matches (O(1))
-    exact_matches = []
-    if search_value in ALL_RSIDS:
-        exact_matches.append(ALL_RSIDS[search_value])
-    
-    # Use trie for prefix matches (very fast for prefix matching)
-    prefix_matches = RSID_TRIE.find_prefix_matches(search_value, max_results=10 - len(exact_matches))
-    
-    # If trie doesn't find enough matches, try binary search as fallback
-    if len(prefix_matches) < 10 - len(exact_matches):
-        additional_matches = binary_search_prefix(search_value, max_results=10 - len(exact_matches) - len(prefix_matches))
-        prefix_matches.extend(additional_matches)
-    
-    # Combine results in priority order
-    filtered_results = exact_matches + prefix_matches
-    
-    # Convert to options format
-    options = []
-    for rsid in filtered_results[:10]:
-        options.append({
-            'label': rsid,
-            'value': rsid
-        })
-    
-    # Cache the results
-    RSID_SEARCH_CACHE[cache_key] = options
-    return options
+    return results
 
 def _search_rsids_database(search_value):
     """Fallback to database search if in-memory index fails"""

@@ -30,6 +30,8 @@ def create_rsid_search_dropdown(initial_value=None, initial_options=None):
         searchable=True,
         options=initial_options or [],
         value=initial_value,
+        optionHeight=50,  # Make options more readable
+        maxHeight=300,    # Limit dropdown height
         style={
             "background-color": "#ffffff",
             "color": "#333333",

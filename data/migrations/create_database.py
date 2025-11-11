@@ -498,6 +498,14 @@ def create_indexes(table_name):
         # Check for gene_id if gene_name does not exist
         if "gene_id" in columns and "gene_name" not in columns:
             columns_to_index.append("gene_id")
+
+        # Check for sex if sample_id does not exist
+        if "sex" in columns and "sample_id" not in columns:
+            columns_to_index.append("sex")
+        
+        # Check for independent_variable if sample_id does not exist
+        if "independent_variable" in columns and "sample_id" not in columns:
+            columns_to_index.append("independent_variable")
         
         # Check for gene_index if gene_id does not exist
         if "gene_id" not in columns and "gene_index" in columns:

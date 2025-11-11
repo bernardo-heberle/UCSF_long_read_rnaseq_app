@@ -349,3 +349,21 @@ p[style*="font-size: 1.1rem"] {
     width: 18px !important; /* Larger handle */
     height: 18px !important; /* Larger handle */
 }
+
+/* Replace the default "No options available" message with "Searching..." */
+/* This shows during search operations before callback results arrive */
+.Select-noresults,
+.Select--multi .Select-noresults,
+.Select--single .Select-noresults {
+    font-size: 0 !important; /* Hide the original text */
+}
+
+.Select-noresults::before,
+.Select--multi .Select-noresults::before,
+.Select--single .Select-noresults::before {
+    content: "🔍 Searching..." !important;
+    font-size: 14px !important; /* Restore font size for our custom text */
+    font-weight: 500 !important;
+    color: #666 !important;
+    display: block !important;
+}

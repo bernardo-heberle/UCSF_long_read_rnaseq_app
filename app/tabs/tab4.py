@@ -67,10 +67,6 @@ density_fig.update_layout(
     )
 )
 
-# Store the last valid search options to prevent them from disappearing
-last_valid_rsid_options = []
-last_rsid_search_value = None  # Store the last search value
-
 # Store the last valid gene search options
 last_valid_gene_options = []
 last_gene_search_value = None
@@ -88,60 +84,55 @@ DEFAULT_RSID = "rs9904865"
      Input('rsid-search-input', 'value')]
 )
 def update_rsid_search_options(search_value, selected_value):
-    global last_valid_rsid_options, last_rsid_search_value
+    # Case 1: User is actively searching (search_value exists)
+    if search_value:
+        # Process the search and return results
+        results = search_rsids(search_value)
+        
+        if len(results) == 0:
+            # Search performed but no results found
+            return [{
+                'label': f'No matching RSID for "{search_value}"',
+                'value': '__no_result__',
+                'disabled': True
+            }]
+        else:
+            # Search performed and results found
+            return results
     
-    # If we have a selected value but no search, return the last options
-    # This keeps the dropdown populated after selection
-    if selected_value and not search_value:
-        # Make sure the selected value is in the options
-        selected_in_options = any(opt.get('value') == selected_value for opt in last_valid_rsid_options)
-        if not selected_in_options:
-            # If we have a newly selected value, we need to add it to the options
-            # First check if the RSID exists in the database
-            try:
-                rsid_result = duck_conn.execute("""
-                    SELECT rsid 
-                    FROM rsid_index_table 
-                    WHERE rsid_index = ?
-                    LIMIT 1
-                """, [selected_value]).fetchone()
-                
-                if rsid_result:
-                    # Add this RSID to the options
-                    rsid = rsid_result[0]
-                    option = {
-                        'label': rsid,
-                        'value': selected_value  # Keep the rsid_index as value
-                    }
-                    last_valid_rsid_options = [option]  # Just show the current selection
-            except Exception as e:
-                # If we can't get the details, just use the raw ID
-                if selected_value:
-                    last_valid_rsid_options = [{
-                        'label': str(selected_value),
-                        'value': selected_value
-                    }]
+    # Case 2: We have a selected value but no active search
+    elif selected_value and not search_value:
+        # Fetch the RSID for the selected value from database
+        try:
+            rsid_result = duck_conn.execute("""
+                SELECT rsid 
+                FROM rsid_index_table 
+                WHERE rsid_index = ?
+                LIMIT 1
+            """, [selected_value]).fetchone()
+            
+            if rsid_result:
+                return [{
+                    'label': rsid_result[0],
+                    'value': selected_value
+                }]
+        except Exception as e:
+            print(f"Error fetching selected RSID: {e}")
         
-        return last_valid_rsid_options
+        # Fallback: return the selected value as-is
+        return [{
+            'label': str(selected_value),
+            'value': selected_value
+        }]
     
-    # If no search value and no selected value, return rs9904865 as default
-    if not search_value and not selected_value:
-        # Don't override if there's already an initial value set
-        return last_valid_rsid_options
-        
-    # If no search value or too short, return latest options
-    if not search_value or len(search_value) < 2:
-        return last_valid_rsid_options
-        
-    # Process the search and return results
-    results = search_rsids(search_value, last_rsid_search_value)
-    
-    # Store the results and search value for future reference
-    if results:
-        last_valid_rsid_options = results
-        last_rsid_search_value = search_value
-        
-    return results
+    # Case 3: No search and no selection - show placeholder
+    else:
+        return [{
+            'label': '🔍 Start typing to search RSIDs...',
+            'value': '__placeholder__',
+            'disabled': True
+        }]
+
 
 @app.callback(
     Output('search-input-tab4', 'options'),
@@ -1089,7 +1080,7 @@ def layout():
                                 'label': DEFAULT_RSID,
                                 'value': DEFAULT_RSID_INDEX
                             }]
-                        )
+                        ),
                     ], width=2, id="tab4-rsid-search-col"),
                     dbc.Col([
                         create_section_header("Data Matrix:"),
