@@ -42,7 +42,7 @@ layout = dbc.Container([
     
     # Minimal, clean header with enhanced contrast and responsive font size
     html.Div([
-        html.H1("Long-Read RNAseq Atlas of Aged Human Brain", 
+        html.H1("", 
             className="mt-5 mb-2 dbc", 
             style={
                 "font-weight": "400",

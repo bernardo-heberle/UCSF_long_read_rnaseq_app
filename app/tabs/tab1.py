@@ -499,10 +499,6 @@ def load_table_data(group_comparison, count_type):
     dge_table, dte_table, dtu_table = get_table_names(count_type)
     
     try:
-        # Debug: Print what we're looking for
-        print(f"Loading data for group_comparison: '{group_comparison}', count_type: '{count_type}'")
-        print(f"Table names: {dge_table}, {dte_table}, {dtu_table}")
-        
         # Get DEG data filtered by group_comparison
         dge_query = f"""
             SELECT *
@@ -606,12 +602,10 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
     
     try:
         ## Load DEG data into a pandas dataframe
-        print(f"Executing DGE query: {dge_query[:100]}...")
         dge_cursor = duck_conn.execute(dge_query)
         dge_columns = [desc[0] for desc in dge_cursor.cursor.description]
         dge_result = dge_cursor.fetchall()
         dge_data = pd.DataFrame(dge_result, columns=dge_columns)
-        print(f"DGE data shape: {dge_data.shape}")
         
         # Rename effectSize to log2FoldChange for volcano plot compatibility
         if 'effectSize' in dge_data.columns:
@@ -625,13 +619,14 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
         # Remove rows with NaN p-values to prevent VolcanoPlot errors
         dge_data = dge_data.dropna(subset=['PValue'])
         
+        # Filter out extreme effect sizes (> 20 or < -20)
+        dge_data = dge_data[(dge_data['log2FoldChange'] >= -20) & (dge_data['log2FoldChange'] <= 20)]
+        
         ## Load DTE data into a pandas dataframe
-        print(f"Executing DTE query: {dte_query[:100]}...")
         dte_cursor = duck_conn.execute(dte_query)
         dte_columns = [desc[0] for desc in dte_cursor.cursor.description]
         dte_result = dte_cursor.fetchall()
         dte_data = pd.DataFrame(dte_result, columns=dte_columns)
-        print(f"DTE data shape: {dte_data.shape}")
         
         # Rename effectSize to log2FoldChange for volcano plot compatibility
         if 'effectSize' in dte_data.columns:
@@ -645,13 +640,14 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
         # Remove rows with NaN p-values to prevent VolcanoPlot errors
         dte_data = dte_data.dropna(subset=['PValue'])
         
+        # Filter out extreme effect sizes (> 20 or < -20)
+        dte_data = dte_data[(dte_data['log2FoldChange'] >= -20) & (dte_data['log2FoldChange'] <= 20)]
+        
         ## Load DTU data into a pandas dataframe
-        print(f"Executing DTU query: {dtu_query[:100]}...")
         dtu_cursor = duck_conn.execute(dtu_query)
         dtu_columns = [desc[0] for desc in dtu_cursor.cursor.description]
         dtu_result = dtu_cursor.fetchall()
         dtu_data = pd.DataFrame(dtu_result, columns=dtu_columns)
-        print(f"DTU data shape: {dtu_data.shape}")
         
         # Rename effectSize to estimates and PValue to pval, padj to regular_FDR for volcano plot compatibility
         if 'effectSize' in dtu_data.columns:
@@ -664,6 +660,9 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
         
         # Remove rows with NaN p-values to prevent VolcanoPlot errors
         dtu_data = dtu_data.dropna(subset=['pval'])
+        
+        # Filter out extreme effect sizes (> 20 or < -20)
+        dtu_data = dtu_data[(dtu_data['estimates'] >= -20) & (dtu_data['estimates'] <= 20)]
         
         # Check if any dataframes are empty
         if dge_data.empty or dte_data.empty or dtu_data.empty:
