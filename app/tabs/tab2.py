@@ -404,16 +404,19 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, log_transf
      State('matrix-table-dropdown-tab2', 'value')]
 )
 def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, selected_gene, count_type):
-
-    import plotly.io as pio
-
+    print(f"[DEBUG TAB2] Download button clicked! n_clicks={n_clicks}")
+    
     if n_clicks is None or not n_clicks or selected_gene is None:
+        print(f"[DEBUG TAB2] Returning no_update: n_clicks={n_clicks}, selected_gene={selected_gene}")
         return no_update
+    
+    print(f"[DEBUG TAB2] selected_gene={selected_gene}, count_type={count_type}")
     
     # If no count type is selected, use unique counts by default
     count_type = count_type if count_type else 'unique'
     
     try:
+        print("[DEBUG TAB2] Starting download process...")
         # Get the gene name for the filename
         gene_info = duck_conn.execute("""
             SELECT g.gene_index, g.gene_name, g.gene_id
@@ -424,6 +427,7 @@ def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, se
         """, [selected_gene]).fetchone()
         
         gene_name = gene_info[1] if gene_info else selected_gene
+        print(f"[DEBUG TAB2] Gene name: {gene_name}")
         
         # Create a temporary directory for our files
         import tempfile
@@ -433,9 +437,13 @@ def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, se
         temp_dir = tempfile.mkdtemp()
         zip_filename = f"{gene_name}_RNA_isoform_expression_plots.zip"
         zip_path = os.path.join(temp_dir, zip_filename)
+        print(f"[DEBUG TAB2] Created temp dir: {temp_dir}")
+        print(f"[DEBUG TAB2] Zip filename: {zip_filename}")
         
         # Create a zip file
+        print("[DEBUG TAB2] Creating zip file...")
         with zipfile.ZipFile(zip_path, 'w') as zipf:
+            print("[DEBUG TAB2] Zip file created, processing figures...")
             # Export the density plot
             if density_fig:
                 density_svg_name = f"{gene_name}_density_distribution_plot.svg"
@@ -527,17 +535,22 @@ def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, se
                 zipf.writestr(isoform_svg_name, placeholder_svg)
             
         # Read the zip file
+        print("[DEBUG TAB2] Reading zip file...")
         with open(zip_path, 'rb') as f:
             zip_data = f.read()
+        print(f"[DEBUG TAB2] Zip file read, size: {len(zip_data)} bytes")
             
         # Clean up temp directory
         import shutil
         shutil.rmtree(temp_dir)
+        print("[DEBUG TAB2] Temp directory cleaned up")
 
         # Shutdown kaleido scope to avoid memory waste
         pio.kaleido.scope._shutdown_kaleido()
+        print("[DEBUG TAB2] Kaleido shutdown")
             
         # Return the zip file
+        print("[DEBUG TAB2] Returning download data")
         return dict(
             content=base64.b64encode(zip_data).decode(),
             filename=zip_filename,
@@ -546,6 +559,9 @@ def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, se
         )
             
     except Exception as e:
+        print(f"[DEBUG TAB2] Error in download callback: {e}")
+        import traceback
+        print(traceback.format_exc())
         return no_update
 
 def layout():

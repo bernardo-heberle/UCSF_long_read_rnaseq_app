@@ -16,6 +16,8 @@ import pandas as pd
 import json
 from io import StringIO
 import numpy as np
+import plotly.io as pio
+import kaleido
 
 # Store the last valid search options to prevent them from disappearing
 last_valid_options = []
@@ -1300,36 +1302,41 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
      State('matrix-type-dropdown-tab1', 'value')]
 )
 def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_comparison, count_type):
-    from dash import dcc, no_update
     import tempfile
     import zipfile
     import os
     import base64
     import shutil
-    import gc
-    import os    
-    from dash.dependencies import Input, Output, State
-    import plotly.graph_objs as go
-    import plotly.io as pio
+    
+    print(f"[DEBUG] Download button clicked! n_clicks={n_clicks}")
         
     if n_clicks is None or not n_clicks:
+        print("[DEBUG] n_clicks is None or 0, returning no_update")
         return no_update
+    
+    print(f"[DEBUG] group_comparison={group_comparison}, count_type={count_type}")
     
     # If no count type is selected, use unique counts by default
     count_type = count_type if count_type else 'unique'
     
     try:
+        print("[DEBUG] Starting download process...")
         # Prepare filename based on group comparison
         # Replace spaces and special characters for filename
         comparison_text = group_comparison.replace(" ", "_").replace(".", "_") if group_comparison else "comparison"
+        print(f"[DEBUG] comparison_text={comparison_text}")
         
         # Create a temporary directory for our files
         temp_dir = tempfile.mkdtemp()
         zip_filename = f"Differential_analysis_plots_{comparison_text}.zip"
         zip_path = os.path.join(temp_dir, zip_filename)
+        print(f"[DEBUG] Created temp dir: {temp_dir}")
+        print(f"[DEBUG] Zip filename: {zip_filename}")
         
         # Create a zip file
+        print("[DEBUG] Creating zip file...")
         with zipfile.ZipFile(zip_path, 'w') as zipf:
+            print("[DEBUG] Zip file created, processing figures...")
 
             # Extract figures from the plot children if they exist
             if dge_fig:
@@ -1433,16 +1440,29 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
                 os.remove(tmp_svg)
                 pio.kaleido.scope._shutdown_kaleido()
         
-        ## Write file
-        out = dcc.send_file(zip_path)
+        # Read the zip file
+        print("[DEBUG] Reading zip file...")
+        with open(zip_path, 'rb') as f:
+            zip_data = f.read()
+        print(f"[DEBUG] Zip file read, size: {len(zip_data)} bytes")
             
         # Clean up temp directory
         shutil.rmtree(temp_dir)
+        print("[DEBUG] Temp directory cleaned up")
         
         # Return the zip file
-        return out
+        print("[DEBUG] Returning download data")
+        return dict(
+            content=base64.b64encode(zip_data).decode(),
+            filename=zip_filename,
+            type="application/zip",
+            base64=True
+        )
             
     except Exception as e:
+        print(f"Error in download callback: {e}")
+        import traceback
+        print(traceback.format_exc())
         return no_update
 
 # Update the p-value slider to have responsive font size
