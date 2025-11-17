@@ -250,25 +250,11 @@ def layout():
                     # Quadrant 2 (Top Right)
                     dbc.Col([
                         create_content_card([
-                            dcc.Loading(
-                                id="loading-dge",
-                                type="default",
-                                children=html.Div([
-                                    html.Div(
-                                        html.P("Please select analysis parameters to display results",
-                                              style={"color": "#666666", "margin": 0}),
-                                        style={
-                                            "height": "100%",
-                                            "width": "100%",
-                                            "display": "flex",
-                                            "justify-content": "center",
-                                            "align-items": "center",
-                                            "min-height": "600px",  # Increased from 300px
-                                            "background-color": "#f8f9fa",
-                                            "border-radius": "6px"
-                                        }
-                                    )
-                                ], id="differential-gene-expression-plot")
+                            dbc.Spinner(
+                                html.Div([], id="differential-gene-expression-plot"),
+                                color="primary",
+                                type="grow",
+                                spinner_style={"width": "3rem", "height": "3rem"}
                             )
                         ])
                     ], width=6, id="tab1-quadrant2-col")
@@ -279,25 +265,11 @@ def layout():
                     # Quadrant 3 (Bottom Left)
                     dbc.Col([
                         create_content_card([
-                            dcc.Loading(
-                                id="loading-dte",
-                                type="default",
-                                children=html.Div([
-                                    html.Div(
-                                        html.P("Please select analysis parameters to display results",
-                                              style={"color": "#666666", "margin": 0}),
-                                        style={
-                                            "height": "100%",
-                                            "width": "100%",
-                                            "display": "flex",
-                                            "justify-content": "center",
-                                            "align-items": "center",
-                                            "min-height": "600px",  # Increased from 300px
-                                            "background-color": "#f8f9fa",
-                                            "border-radius": "6px"
-                                        }
-                                    )
-                                ], id="differential-transcript-expression-plot")
+                            dbc.Spinner(
+                                html.Div([], id="differential-transcript-expression-plot"),
+                                color="primary",
+                                type="grow",
+                                spinner_style={"width": "3rem", "height": "3rem"}
                             )
                         ])
                     ], width=6, id="tab1-quadrant3-col"),
@@ -305,25 +277,11 @@ def layout():
                     # Quadrant 4 (Bottom Right)
                     dbc.Col([
                         create_content_card([
-                            dcc.Loading(
-                                id="loading-dtu",
-                                type="default",
-                                children=html.Div([
-                                    html.Div(
-                                        html.P("Please select analysis parameters to display results",
-                                              style={"color": "#666666", "margin": 0}),
-                                        style={
-                                            "height": "100%",
-                                            "width": "100%",
-                                            "display": "flex",
-                                            "justify-content": "center",
-                                            "align-items": "center",
-                                            "min-height": "600px",  # Increased from 300px
-                                            "background-color": "#f8f9fa",
-                                            "border-radius": "6px"
-                                        }
-                                    )
-                                ], id="differential-transcript-usage-plot")
+                            dbc.Spinner(
+                                html.Div([], id="differential-transcript-usage-plot"),
+                                color="primary",
+                                type="grow",
+                                spinner_style={"width": "3rem", "height": "3rem"}
                             )
                         ])
                     ], width=6, id="tab1-quadrant4-col")
