@@ -512,25 +512,22 @@ def load_table_data(independent_var, sex, count_type):
     
     try:       
         # Get DEG data filtered by independent_var and sex
-        # Only select columns needed for the volcano plot
         dge_query = f"""
-            SELECT gene_name, effectSize, PValue, padj
+            SELECT *
             FROM "{dge_table}"
             WHERE independent_var = '{independent_var}' AND sex = '{sex}'
         """
   
         # Get DTE data filtered by independent_var and sex
-        # Include transcript_id for transcript-level plots
         dte_query = f"""
-            SELECT gene_name, transcript_id, effectSize, PValue, padj
+            SELECT *
             FROM "{dte_table}"
             WHERE independent_var = '{independent_var}' AND sex = '{sex}'
         """
         
         # Get DTU data filtered by independent_var and sex
-        # Include transcript_id for transcript-level plots
         dtu_query = f"""
-            SELECT gene_name, transcript_id, effectSize, PValue, padj
+            SELECT *
             FROM "{dtu_table}"
             WHERE independent_var = '{independent_var}' AND sex = '{sex}'
         """
@@ -634,7 +631,7 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
     legend_label_size = 16 * scaling_factor
     
     # Calculate responsive height for plots
-    plot_height = int(window_dimensions['height'] * 0.785)  # Using 0.7x window height
+    plot_height = int(window_dimensions['height'] * 0.785)  # Using 0.785x window height
     
     try:
         ## Load DEG data into a pandas dataframe
@@ -701,9 +698,10 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
             if dtu_data.empty:
                 empty_msg.append("DTU")
             
-            placeholder = html.Div(
+            # Show error message in a styled div
+            error_message = html.Div(
                 html.P(f"No data available for the selected filters: {', '.join(empty_msg)} tables are empty. Try different parameters.",
-                      style={"color": "#666666", "margin": 0, "text-align": "center", "padding": "20px"}),
+                      style={"color": "#dc3545", "margin": 0, "text-align": "center", "padding": "20px", "font-weight": "500"}),
                 style={
                     "height": "100%",
                     "width": "100%",
@@ -712,11 +710,12 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
                     "align-items": "center",
                     "min-height": f"{plot_height}px",
                     "background-color": "#f8f9fa",
-                    "border-radius": "6px"
+                    "border-radius": "6px",
+                    "border": "2px solid #dc3545"
                 }
             )
             empty_fig = {}
-            return placeholder, placeholder, placeholder, empty_fig, empty_fig, empty_fig
+            return error_message, error_message, error_message, empty_fig, empty_fig, empty_fig
 
         # Calculate significance lines based on user-selected thresholds
         dge_sig_line = -np.log10(dge_data.loc[dge_data['padj'] < pvalue_threshold]['PValue'].max() + 0.000000001) \
@@ -1308,23 +1307,11 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
         return dge_plot, dte_plot, dtu_plot, volcano_plot_dge, volcano_plot_dte, volcano_plot_dtu
         
     except Exception as e:
-        placeholder = html.Div(
-            html.P("Please select analysis parameters to display results",
-                  style={"color": "#666666", "margin": 0}),
-            style={
-                "height": "100%",
-                "width": "100%",
-                "display": "flex",
-                "justify-content": "center",
-                "align-items": "center",
-                "min-height": f"{plot_height}px",  # Match the plot height
-                "background-color": "#f8f9fa",
-                "border-radius": "6px"
-            }
-        )
+        # Return empty div so spinner continues to show
+        empty_div = html.Div()
         # Return empty figures for the dummy graphs when there's an error
         empty_fig = {}
-        return placeholder, placeholder, placeholder, empty_fig, empty_fig, empty_fig
+        return empty_div, empty_div, empty_div, empty_fig, empty_fig, empty_fig
 
 # Add download SVG callback
 @app.callback(
