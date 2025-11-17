@@ -12,4 +12,4 @@ dash_app.layout = layout
 
 # This is only needed for local development
 if __name__ == "__main__":
-    dash_app.run_server(debug=True)
+    dash_app.run_server(debug=False)

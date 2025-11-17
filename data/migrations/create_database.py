@@ -531,6 +531,19 @@ def create_indexes(table_name):
         with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
             conn.execute(text("SET maintenance_work_mem = '2097151kB'"))
         
+        # Create composite indexes for differential analysis tables
+        # These tables are queried by (independent_var, sex) together
+        if table_name in ["degs", "dte_unique", "dte_total", "dtu_unique", "dtu_total"]:
+            if "independent_var" in columns and "sex" in columns:
+                try:
+                    composite_index_name = f"idx_{table_name}_independent_var_sex"
+                    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+                        print(f"Creating composite index on (independent_var, sex) for table '{table_name}'")
+                        conn.execute(text(f'CREATE INDEX CONCURRENTLY {composite_index_name} ON "{table_name}" ("independent_var", "sex");'))
+                        print(f"Successfully created composite index '{composite_index_name}'")
+                except Exception as e:
+                    print(f"Failed to create composite index on (independent_var, sex): {e}")
+        
         # Add indexes on the identified columns
         if columns_to_index:
             for col in columns_to_index:
