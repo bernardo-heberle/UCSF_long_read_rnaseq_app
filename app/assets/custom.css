@@ -11,22 +11,6 @@ body {
     margin-bottom: calc(0.5vh + 5px);  /* Reduced responsive bottom margin */
 }
 
-/* Clickable card styles for tab0 */
-#de-card, #ie-card, #ic-card, #qtl-card, #download-card {
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border: 1px solid rgba(0,0,0,0.1);
-    border-radius: 0.375rem;
-    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
-}
-
-#de-card:hover, #ie-card:hover, #ic-card:hover, #qtl-card:hover, #download-card:hover {
-    border: 1px solid #2780E3;
-    box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
-    transform: translateY(-2px);
-    background-color: rgba(39, 128, 227, 0.05);
-}
-
 /* Additional styles for group comparison dropdown that needs more height */
 .taller-dropdown .Select-control {
     min-height: 50px !important; /* Taller minimum height */

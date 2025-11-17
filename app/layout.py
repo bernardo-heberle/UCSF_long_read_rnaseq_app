@@ -5,7 +5,7 @@
 
 from dash import html, dcc
 import dash_bootstrap_components as dbc
-from app.tabs import tab0, tab1, tab2
+from app.tabs import tab1, tab2
 
 # Define some custom colors that complement COSMO theme
 COLORS = {
@@ -27,10 +27,10 @@ layout = dbc.Container([
         data={'width': 1200, 'height': 800}
     ),
 
-    # Active tab store - initialize with home tab
+    # Active tab store - initialize with tab1 as home
     dcc.Store(
         id='active-tab',
-        data='tab-0',
+        data='tab-1',
         storage_type='memory'
     ),
 
@@ -69,9 +69,8 @@ layout = dbc.Container([
     # Tabs with enhanced styling and responsive font size
     dbc.Tabs(
         id="tabs",
-        active_tab="tab-0",
+        active_tab="tab-1",
         children=[
-            dbc.Tab(label="Home", tab_id="tab-0", active_tab_style={"borderBottom": f"3px solid {COLORS['accent']}"}),
             dbc.Tab(label="Differential Expression", tab_id="tab-1", active_tab_style={"borderBottom": f"3px solid {COLORS['accent']}"}),
             dbc.Tab(label="Isoform Explorer", tab_id="tab-2", active_tab_style={"borderBottom": f"3px solid {COLORS['accent']}"}),
         ],
@@ -116,7 +115,6 @@ style={
 
 # Mapping of tab values to their corresponding layouts
 content_layout = {
-    "tab-0": tab0.layout(),  # New Home tab
-    "tab-1": tab1.layout(),
-    "tab-2": tab2.layout()
+    "tab-1": tab1.layout(),  # Differential Expression (Home)
+    "tab-2": tab2.layout()   # Isoform Explorer
 }
