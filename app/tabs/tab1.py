@@ -1339,8 +1339,10 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
             print("[DEBUG] Zip file created, processing figures...")
 
             # Extract figures from the plot children if they exist
+            print("[DEBUG] Processing DGE figure...")
             if dge_fig:
                 dge_svg_name = f"Differential_gene_expression_{comparison_text}.svg"
+                print("[DEBUG] Creating DGE Figure object...")
                 
                 # Update layout for larger size and wider ratio
                 fig = go.Figure(dge_fig)  # Create a copy to avoid modifying the original
@@ -1366,15 +1368,19 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
                 )
                 
                 # 1) write SVG straight to disk
+                print("[DEBUG] Writing DGE SVG to disk...")
                 tmp_svg = os.path.join(temp_dir, dge_svg_name)
-                fig.write_image(tmp_svg, format="svg")
+                fig.write_image(tmp_svg, format="svg", engine="kaleido")
+                print("[DEBUG] DGE SVG written, adding to zip...")
                 zipf.write(tmp_svg, arcname=dge_svg_name)
                 os.remove(tmp_svg)
-                pio.kaleido.scope._shutdown_kaleido()
+                print("[DEBUG] DGE SVG complete")
             
             # DTE Plot
+            print("[DEBUG] Processing DTE figure...")
             if dte_fig:
                 dte_svg_name = f"Differential_transcript_expression_{comparison_text}_{count_type}.svg"
+                print("[DEBUG] Creating DTE Figure object...")
                 
                 # Update layout for larger size and wider ratio
                 fig = go.Figure(dte_fig)  # Create a copy to avoid modifying the original
@@ -1400,15 +1406,19 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
                 )
                 
                 # 1) write SVG straight to disk
+                print("[DEBUG] Writing DTE SVG to disk...")
                 tmp_svg = os.path.join(temp_dir, dte_svg_name)
-                fig.write_image(tmp_svg, format="svg")
+                fig.write_image(tmp_svg, format="svg", engine="kaleido")
+                print("[DEBUG] DTE SVG written, adding to zip...")
                 zipf.write(tmp_svg, arcname=dte_svg_name)
                 os.remove(tmp_svg)
-                pio.kaleido.scope._shutdown_kaleido()
+                print("[DEBUG] DTE SVG complete")
             
             # DTU Plot
+            print("[DEBUG] Processing DTU figure...")
             if dtu_fig:
                 dtu_svg_name = f"Differential_transcript_usage_{comparison_text}_{count_type}.svg"
+                print("[DEBUG] Creating DTU Figure object...")
                 
                 # Update layout for larger size and wider ratio
                 fig = go.Figure(dtu_fig)  # Create a copy to avoid modifying the original
@@ -1434,11 +1444,17 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
                 )
                 
                 # 1) write SVG straight to disk
+                print("[DEBUG] Writing DTU SVG to disk...")
                 tmp_svg = os.path.join(temp_dir, dtu_svg_name)
-                fig.write_image(tmp_svg, format="svg")
+                fig.write_image(tmp_svg, format="svg", engine="kaleido")
+                print("[DEBUG] DTU SVG written, adding to zip...")
                 zipf.write(tmp_svg, arcname=dtu_svg_name)
                 os.remove(tmp_svg)
-                pio.kaleido.scope._shutdown_kaleido()
+                print("[DEBUG] DTU SVG complete")
+        
+        print("[DEBUG] All figures processed, shutting down kaleido...")
+        pio.kaleido.scope._shutdown_kaleido()
+        print("[DEBUG] Kaleido shutdown complete")
         
         # Read the zip file
         print("[DEBUG] Reading zip file...")
