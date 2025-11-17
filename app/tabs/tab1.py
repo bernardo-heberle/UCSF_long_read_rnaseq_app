@@ -498,7 +498,11 @@ def load_table_data(group_comparison, count_type):
     # Get the appropriate table names
     dge_table, dte_table, dtu_table = get_table_names(count_type)
     
-    try:       
+    try:
+        # Debug: Print what we're looking for
+        print(f"Loading data for group_comparison: '{group_comparison}', count_type: '{count_type}'")
+        print(f"Table names: {dge_table}, {dte_table}, {dtu_table}")
+        
         # Get DEG data filtered by group_comparison
         dge_query = f"""
             SELECT *
@@ -525,6 +529,8 @@ def load_table_data(group_comparison, count_type):
     except Exception as e:
         # Return empty data on error
         print(f"Error loading data: {e}")
+        import traceback
+        print(traceback.format_exc())
         return None, None, None
 
 # Add callbacks for displaying the current slider values
@@ -600,10 +606,12 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
     
     try:
         ## Load DEG data into a pandas dataframe
+        print(f"Executing DGE query: {dge_query[:100]}...")
         dge_cursor = duck_conn.execute(dge_query)
         dge_columns = [desc[0] for desc in dge_cursor.cursor.description]
         dge_result = dge_cursor.fetchall()
         dge_data = pd.DataFrame(dge_result, columns=dge_columns)
+        print(f"DGE data shape: {dge_data.shape}")
         
         # Rename effectSize to log2FoldChange for volcano plot compatibility
         if 'effectSize' in dge_data.columns:
@@ -618,10 +626,12 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
         dge_data = dge_data.dropna(subset=['PValue'])
         
         ## Load DTE data into a pandas dataframe
+        print(f"Executing DTE query: {dte_query[:100]}...")
         dte_cursor = duck_conn.execute(dte_query)
         dte_columns = [desc[0] for desc in dte_cursor.cursor.description]
         dte_result = dte_cursor.fetchall()
         dte_data = pd.DataFrame(dte_result, columns=dte_columns)
+        print(f"DTE data shape: {dte_data.shape}")
         
         # Rename effectSize to log2FoldChange for volcano plot compatibility
         if 'effectSize' in dte_data.columns:
@@ -636,10 +646,12 @@ def update_plots(dge_query, dte_query, dtu_query, selected_gene_name, pvalue_idx
         dte_data = dte_data.dropna(subset=['PValue'])
         
         ## Load DTU data into a pandas dataframe
+        print(f"Executing DTU query: {dtu_query[:100]}...")
         dtu_cursor = duck_conn.execute(dtu_query)
         dtu_columns = [desc[0] for desc in dtu_cursor.cursor.description]
         dtu_result = dtu_cursor.fetchall()
         dtu_data = pd.DataFrame(dtu_result, columns=dtu_columns)
+        print(f"DTU data shape: {dtu_data.shape}")
         
         # Rename effectSize to estimates and PValue to pval, padj to regular_FDR for volcano plot compatibility
         if 'effectSize' in dtu_data.columns:

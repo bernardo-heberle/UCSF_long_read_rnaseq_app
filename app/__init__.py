@@ -2,8 +2,6 @@ print("[DEBUG] app/__init__.py: Starting execution")
 
 from dash import Dash
 import dash_bootstrap_components as dbc
-import atexit
-from app.utils.db_utils import cleanup
 
 # --- Logging Setup ---
 # Memory tracking removed
@@ -28,7 +26,3 @@ app = Dash(
 server = app.server
 
 # Memory tracking removed
-
-# Register cleanup functions to be called when the app exits
-atexit.register(cleanup)
-# Memory tracker shutdown removed
