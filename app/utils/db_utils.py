@@ -81,9 +81,6 @@ ALL_GENES = []  # Global list to hold all genes
 GENE_INDEX_LOADED = False  # Flag to track if the gene index is loaded
 GENE_INDEX_LOADING = False  # Flag to track if the gene index is currently loading
 
-# For RSID searching
-RSID_SEARCH_CACHE = {}  # Cache for search results
-
 def _load_gene_index_thread():
     """Background thread to load gene index"""
     global ALL_GENES, GENE_INDEX_LOADED, GENE_INDEX_LOADING
@@ -178,25 +175,6 @@ def _load_gene_index():
         print(f"Error loading gene index synchronously: {e}")
         # Set empty list in case of failure
         ALL_GENES = []
-
-def get_matrix_tables():
-    """Get all transcript data tables from the database using SQLAlchemy."""
-    try:
-        with pg_engine.connect() as conn:
-            query = text("""
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_schema = 'public'
-                AND LOWER(table_name) LIKE '%transcript_data%'
-                ORDER BY table_name
-            """)
-            result = conn.execute(query).fetchall()
-        
-        tables = [row[0] for row in result]
-        return tables
-    except Exception as e:
-        print(f"Error getting tables: {e}")
-        return []
 
 def get_matrix_dropdown_options():
     """Get formatted dropdown options for different counting methods."""
@@ -337,39 +315,6 @@ def _search_genes_database(search_value):
         print(f"Error in database search: {e}")
         return []
 
-def get_table_info(table_name):
-    """Get basic information about a table including dimensions and preview using SQLAlchemy."""
-    try:
-        with pg_engine.connect() as conn:
-            # Get column count
-            col_query = text(f"""
-                SELECT COUNT(*) 
-                FROM information_schema.columns 
-                WHERE table_name = :table_name
-            """)
-            col_count = conn.execute(col_query, {"table_name": table_name}).scalar()
-            
-            # Get row count
-            row_query = text(f"SELECT COUNT(*) FROM {table_name}")
-            row_count = conn.execute(row_query).scalar()
-            
-            # Get first few rows preview
-            preview_query = text(f"SELECT * FROM {table_name} LIMIT 5")
-            preview_df = pd.read_sql(preview_query, conn)
-            
-            # Convert to Polars if available
-            if POLARS_AVAILABLE:
-                preview_df = pl.from_pandas(preview_df)
-        
-        return {
-            'row_count': row_count,
-            'col_count': col_count,
-            'preview_df': preview_df
-        }
-    except Exception as e:
-        raise Exception(f"Error getting table info: {str(e)}")
-
-
 def get_gene_data_with_metadata(gene_index, with_polars=True, limit=100):
     """
     Get complete data for a specific gene, joined with metadata using SQLAlchemy.
@@ -446,26 +391,6 @@ def get_gene_data_with_metadata(gene_index, with_polars=True, limit=100):
         MATRIX_DATA_CACHE[cache_key] = df
         
         return df
-
-def clear_cache():
-    """Clear all cached data"""
-    global GENE_INFO_CACHE, MATRIX_DATA_CACHE, SEARCH_RESULTS_CACHE, ALL_GENES, GENE_INDEX_LOADED, RSID_SEARCH_CACHE
-    
-    GENE_INFO_CACHE = {}
-    MATRIX_DATA_CACHE = {}
-    SEARCH_RESULTS_CACHE = {}
-    ALL_GENES = []
-    GENE_INDEX_LOADED = False
-    RSID_SEARCH_CACHE = {}
-    # Don't reset GENE_INDEX_LOADING here as it might interfere with ongoing operations
-
-# Cleanup function to call when the app shuts down
-def cleanup():
-    """Clean up resources when the app shuts down."""
-    global pg_engine
-    clear_cache()
-    if pg_engine:
-        pg_engine.dispose()
 
 def get_gene_density_data(gene_index):
     """
@@ -558,158 +483,6 @@ def get_total_gene_data_with_metadata(gene_index, with_polars=True, limit=None):
         # Cache the result
         MATRIX_DATA_CACHE[cache_key] = df
         return df
-
-
-def search_rsids(search_value):
-    """
-    Search for RSIDs using database query with caching.
-    
-    Args:
-        search_value (str): The current search value
-        
-    Returns:
-        False if no search was performed (empty search_value)
-        [] if search performed but no results found
-        list of dicts if results found
-    """
-    # No search value means no search attempted
-    if not search_value:
-        return False
-    
-    # Check cache first
-    cache_key = search_value.lower()
-    if cache_key in RSID_SEARCH_CACHE:
-        return RSID_SEARCH_CACHE[cache_key]
-    
-    # Perform database search with original search_value
-    results = _search_rsids_database(search_value)
-    
-    # Cache the results (could be empty list or list with results)
-    RSID_SEARCH_CACHE[cache_key] = results
-    
-    return results
-
-def _search_rsids_database(search_value):
-    """Fallback to database search if in-memory index fails"""
-    try:
-        with pg_engine.connect() as conn:
-            # Optimized query using index hints
-            query = text("""
-                WITH rsid_matches AS (
-                    SELECT rsid, rsid_index
-                    FROM rsid_index_table
-                    WHERE rsid IS NOT NULL
-                    AND LOWER(rsid) LIKE :prefix || '%'
-                )
-                SELECT rsid, rsid_index
-                FROM rsid_matches
-                ORDER BY rsid
-                LIMIT 10
-            """)
-            
-            # Execute query with parameter binding
-            result = conn.execute(query, {"prefix": search_value.lower()})
-            return [{"label": row[0], "value": row[1]} for row in result]
-    except Exception as e:
-        print(f"Error in RSID database search: {e}")
-        return []
-
-def get_rsid_data(rsid_index, with_polars=True):
-    """
-    Get data for a specific RSID from the genotyping table, joined with metadata tables.
-
-    Args:
-        rsid_index (str): The rsid_index to query
-        with_polars (bool): Whether to return a Polars DataFrame (True) or Pandas DataFrame (False)
-
-    Returns:
-        DataFrame: Either a Polars or Pandas DataFrame containing the joined genotyping data
-
-    Raises:
-        Exception: If there's an error in the query or if the RSID index is not found
-    """
-    # Return empty DataFrame if rsid_index is None
-    if rsid_index is None:
-        if with_polars and POLARS_AVAILABLE:
-            return pl.DataFrame()
-        return pd.DataFrame()
-
-    # Create a cache key for this specific query
-    cache_key = f"rsid_{rsid_index}_{with_polars}"
-
-    # Check if we have this cached already
-    if cache_key in MATRIX_DATA_CACHE:
-        cached_data = MATRIX_DATA_CACHE[cache_key]
-        return cached_data
-
-    try:
-        with pg_engine.connect() as conn:
-            # Build the main query: Filter -> Unpivot -> Join
-            query = text("""
-                WITH filtered_genotyping AS (
-                    -- Select the single row for the target rsid_index
-                    SELECT *
-                    FROM genotyping
-                    WHERE rsid_index = :rsid_index
-                ),
-                unpivoted_genotyping AS (
-                    -- Unpivot the wide table using JSON functions
-                    SELECT
-                        fg.rsid_index,
-                        -- The key from jsonb_each_text is the column name (sample_id)
-                        (kv.key)::bigint AS sample_id,
-                        -- The value is the genotype_index stored in that column
-                        (kv.value)::integer AS genotype_index
-                    FROM
-                        filtered_genotyping fg,
-                        -- Convert the row to JSONB, remove the rsid_index key,
-                        -- then iterate through the remaining key-value pairs (sample_id:genotype_index)
-                        jsonb_each_text(to_jsonb(fg) - 'rsid_index') AS kv(key, value)
-                    -- Ensure we only process valid genotype_index values if they can be NULL
-                    WHERE kv.value IS NOT NULL AND kv.value != ''
-                )
-                -- Join the unpivoted data with index tables to get actual rsid and genotype
-                SELECT
-                    ug.sample_id,
-                    ri.rsid,
-                    gi.genotype
-                FROM unpivoted_genotyping ug
-                JOIN rsid_index_table ri ON ug.rsid_index = ri.rsid_index
-                JOIN genotype_index_table gi ON ug.genotype_index = gi.genotype_index
-            """)
-
-            # Read directly to pandas
-            df = pd.read_sql(query, conn, params={"rsid_index": rsid_index})
-
-            if df.empty:
-                # Check if the rsid_index actually exists in the index table
-                check_query = text("SELECT 1 FROM rsid_index_table WHERE rsid_index = :rsid_index LIMIT 1")
-                exists = conn.execute(check_query, {"rsid_index": rsid_index}).scalar()
-                if exists:
-                    # If the index exists but no data, return empty DataFrame (maybe log a warning)
-                    print(f"Warning: rsid_index '{rsid_index}' found in index table but has no data in genotyping table.")
-                    if with_polars and POLARS_AVAILABLE:
-                        df = pl.DataFrame({'sample_id': [], 'rsid': [], 'genotype': []})
-                    else:
-                        df = pd.DataFrame({'sample_id': [], 'rsid': [], 'genotype': []})
-
-                else:
-                     raise Exception(f"rsid_index '{rsid_index}' not found in rsid_index_table")
-
-
-            # Convert to polars if requested
-            if with_polars and POLARS_AVAILABLE:
-                df = pl.from_pandas(df)
-
-            # Cache the result
-            MATRIX_DATA_CACHE[cache_key] = df
-            return df
-
-    except Exception as e:
-        print(f"Error getting RSID data for rsid_index {rsid_index}: {e}")
-        # Fallback is less useful here as the primary issue might be joins or missing index
-        # Reraise the exception for better debugging
-        raise Exception(f"Error processing rsid_index '{rsid_index}': {str(e)}")
 
 def search_genes_tab1(search_value, previous_search=None):
     """
