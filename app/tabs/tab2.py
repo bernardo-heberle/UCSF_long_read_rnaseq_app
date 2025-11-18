@@ -692,7 +692,7 @@ def layout():
                 # Third row - three columns
                 dbc.Row([
                     dbc.Col([
-                        create_section_header("Dodge Boxplots By:"),
+                        create_section_header("Show data separated by:"),
                         create_content_card([
                             html.Div([
                                 create_checklist(
@@ -704,7 +704,7 @@ def layout():
                                 )
                             ])
                         ])
-                    ], width=4, id="tab2-metadata-col"),
+                    ], width=3, id="tab2-metadata-col"),
                     dbc.Col([
                         create_section_header("Isoform Range"),
                         create_content_card([
@@ -772,7 +772,7 @@ def layout():
                                 )
                             ], style={"padding": "10px"})
                         ])
-                    ], width=4, id="tab2-col3-3"),
+                    ], width=5, id="tab2-col3-3"),
                 ], className="mb-4 dbc", id="tab2-row3"),
 
                 # Fourth row - two columns
@@ -864,9 +864,9 @@ def update_tab2_responsiveness(dimensions):
     plot_style_col_width = 3
     
     row3_class = "mb-4 dbc"
-    metadata_col_width = 4
+    metadata_col_width = 3
     range_col_width = 4
-    col3_3_width = 4
+    col3_3_width = 5
     
     row4_class = "mb-4 dbc"
     col4_1_width = 6
@@ -911,9 +911,9 @@ def update_tab2_responsiveness(dimensions):
         container_style.update({"padding": "10px"})
         transform_col_width = 3
         plot_style_col_width = 3
-        metadata_col_width = 4
+        metadata_col_width = 3
         range_col_width = 4
-        col3_3_width = 4
+        col3_3_width = 5
         
     return (
         container_style,
