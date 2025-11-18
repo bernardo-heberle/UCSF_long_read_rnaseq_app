@@ -503,7 +503,6 @@ def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, se
                     isoform_svg = real_fig.to_image(format="svg").decode('utf-8')
                     zipf.writestr(isoform_svg_name, isoform_svg)
                 except Exception as isoform_error:
-                    print(f"Error creating isoform SVG: {isoform_error}")
                     # Create placeholder instead
                     placeholder_fig = go.Figure()
                     placeholder_fig.add_annotation(
@@ -516,7 +515,6 @@ def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, se
                     zipf.writestr(isoform_svg_name, placeholder_svg)
             else:
                 # Create a placeholder if isoform fig is not available
-                print("No isoform figure found, creating placeholder")
                 isoform_svg_name = f"{gene_name}_RNA_isoform_plot_{count_type}.svg"
                 placeholder_fig = go.Figure()
                 placeholder_fig.add_annotation(
@@ -938,9 +936,9 @@ def update_tab2_responsiveness(dimensions):
      Input('isoform-range-slider-tab2', 'value')]
 )
 def update_gene_plot_tab2(selected_table, selected_gene, selected_metadata, log_transform, plot_style, window_dimensions, isoform_range):
-    # Set default to APP gene if no gene is selected
+    # Set default to MAPT gene if no gene is selected
     if selected_gene is None:
-        selected_gene = DEFAULT_APP_GENE_INDEX
+        selected_gene = DEFAULT_MAPT_GENE_INDEX
         
     # If no count type is selected, use total counts by default
     count_type = selected_table if selected_table else 'total'
