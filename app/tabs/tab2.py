@@ -36,7 +36,7 @@ pl.Config.set_fmt_str_lengths(100)  # Don't truncate string values
 
 # Get the dropdown options
 dropdown_options = get_matrix_dropdown_options()
-default_table = dropdown_options[0]['value'] if dropdown_options else None
+default_table = 'total'  # Default to total counts
 
 # Load the density plot figure
 density_plot_path = os.path.join('app', 'assets', 'figures', 'gene_level_density_plot.json')
@@ -239,8 +239,8 @@ def update_gene_level_plot(selected_gene, options, selected_metadata, log_transf
         # Set default to MAPT gene
         selected_gene = DEFAULT_MAPT_GENE_INDEX
 
-    # If no count type is selected, use unique counts by default
-    count_type = count_type if count_type else 'unique'
+    # If no count type is selected, use total counts by default
+    count_type = count_type if count_type else 'total'
 
     # Default window dimensions if not available yet
     if not window_dimensions:
@@ -414,8 +414,8 @@ def download_plots_as_svg(n_clicks, density_fig, gene_level_fig, isoform_fig, se
     if n_clicks is None or not n_clicks or selected_gene is None:
         return no_update
     
-    # If no count type is selected, use unique counts by default
-    count_type = count_type if count_type else 'unique'
+    # If no count type is selected, use total counts by default
+    count_type = count_type if count_type else 'total'
     
     try:
         # Get the gene name for the filename

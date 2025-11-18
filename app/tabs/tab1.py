@@ -89,7 +89,7 @@ def layout():
                                                 {"label": "Unique Counts", "value": "unique"},
                                                 {"label": "Total Counts", "value": "total"}
                                             ],
-                                            value="unique",
+                                            value="total",
                                             clearable=False,
                                             className="mb-2 taller-dropdown",
                                             optionHeight=60,
@@ -495,7 +495,7 @@ def load_table_data(group_comparison, count_type):
     if not group_comparison or not count_type:
         return None, None, None
     
-    count_type = count_type if count_type else "unique"
+    count_type = count_type if count_type else "total"
     
     # Get the appropriate table names
     dge_table, dte_table, dtu_table = get_table_names(count_type)
@@ -1311,8 +1311,8 @@ def download_plots_as_svg_tab1(n_clicks, dge_fig, dte_fig, dtu_fig, group_compar
     if n_clicks is None or not n_clicks:
         return no_update
     
-    # If no count type is selected, use unique counts by default
-    count_type = count_type if count_type else 'unique'
+    # If no count type is selected, use total counts by default
+    count_type = count_type if count_type else 'total'
     
     try:
         # Prepare filename based on group comparison
